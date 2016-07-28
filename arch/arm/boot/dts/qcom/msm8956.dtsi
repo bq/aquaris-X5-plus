@@ -2799,6 +2799,7 @@
 	};
 };
 
+/*
 &pm8950_1 {
 	pm8950_cajon_dig: 8952_wcd_codec@f000 {
 		compatible = "qcom,msm8x16_wcd_codec";
@@ -2875,4 +2876,4 @@
 				  "hphl_cnp_int";
 		qcom,dig-cdc-base-addr = <0xc0f0000>;
 	};
-};
+};*/

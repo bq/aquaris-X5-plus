@@ -1101,6 +1101,8 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 		if (arg) {
 			enum msm_vfe_input_src frame_src =
 				*((enum msm_vfe_input_src *)arg);
+			if (vfe_dev->hw_info->runtime_axi_update)
+				msm_isp_axi_cfg_update_pending(vfe_dev, frame_src);
 			vfe_dev->hw_info->vfe_ops.core_ops.
 				reg_update(vfe_dev, frame_src);
 		}

@@ -105,6 +105,13 @@ static void *adsp_state_notifier;
 static int msm8952_enable_codec_mclk(struct snd_soc_codec *codec, int enable,
 					bool dapm);
 
+#if defined(CONFIG_SND_SOC_TPA6130A2)
+extern int tpa6130a2_stereo_enable(struct snd_soc_codec *codec, int enable);
+
+struct snd_soc_codec *codec_hph_pa;
+struct msm8952_asoc_mach_data *pdata_hph_pa = NULL;
+#endif
+
 /*
  * Android L spec
  * Need to report LINEIN
@@ -188,8 +195,8 @@ static void *def_tasha_mbhc_cal(void)
 		(sizeof(btn_cfg->_v_btn_low[0]) * btn_cfg->num_btn);
 
 	btn_high[0] = 75;
-	btn_high[1] = 150;
-	btn_high[2] = 237;
+	btn_high[1] = 100;
+	btn_high[2] = 200;
 	btn_high[3] = 450;
 	btn_high[4] = 450;
 	btn_high[5] = 450;
@@ -304,9 +311,21 @@ struct msm8952_codec {
 			       struct wcd9xxx_mbhc_config *mbhc_cfg);
 };
 
+#if  0 //defined(CONFIG_SND_SOC_TFA98XX)
+struct msm8952_pinctrl_info {
+	struct pinctrl *pinctrl;
+	struct pinctrl_state *gpio_state_active;
+	struct pinctrl_state *gpio_state_suspend;
+	uint8_t pinctrl_status;
+};
+#endif
+
 struct msm8952_asoc_mach_data {
 	int ext_pa;
 	int us_euro_gpio;
+#if  0 //defined(CONFIG_SND_SOC_TFA98XX)
+	struct msm8952_pinctrl_info smart_pa_pinctrl_info;
+#endif
 	struct delayed_work hs_detect_dwork;
 	struct snd_soc_codec *codec;
 	struct msm8952_codec msm8952_codec_fn;
@@ -316,6 +335,13 @@ struct msm8952_asoc_mach_data {
 	void __iomem *vaddr_gpio_mux_mic_ctl;
 	void __iomem *vaddr_gpio_mux_pcm_ctl;
 	void __iomem *vaddr_gpio_mux_quin_ctl;
+#if defined(CONFIG_SND_SOC_TPA6130A2)
+	int hph_ext_pa_gpio_lc;
+	//int spk_hs_switch_gpio;
+	struct delayed_work hph_pa_gpio_work;
+	struct delayed_work hph_pa_gpio_work_close;
+	unsigned char hph_pa_is_on;
+#endif
 };
 
 struct msm895x_auxcodec_prefix_map {
@@ -448,7 +474,7 @@ static int msm8952_set_spk(struct snd_kcontrol *kcontrol,
 static int msm8952_enable_codec_mclk(struct snd_soc_codec *codec, int enable,
 					bool dapm)
 {
-	pr_debug("%s: enable = %d\n", __func__, enable);
+	pr_debug("%s: enable = %d,codec name =%s\n", __func__, enable,dev_name(codec->dev));
 
 	if (!strcmp(dev_name(codec->dev), "tomtom_codec"))
 		tomtom_codec_mclk_enable(codec, enable, dapm);
@@ -1939,6 +1965,41 @@ static int msm8952_codec_event_cb(struct snd_soc_codec *codec,
 	}
 }
 
+#if  0 //defined(CONFIG_SND_SOC_TFA98XX)
+static int smart_pa_pinctrl_support(struct platform_device *pdev,
+			struct msm8952_asoc_mach_data *pdata)
+{
+	struct msm8952_pinctrl_info *pctrl = &pdata->smart_pa_pinctrl_info;
+	int ret;
+
+	pr_debug("At %d In (%s),enter\n",__LINE__, __FUNCTION__);
+	pctrl->pinctrl = devm_pinctrl_get(&pdev->dev);
+	if (IS_ERR_OR_NULL(pctrl->pinctrl)) {
+		pr_err("%s:%d Getting pinctrl handle failed\n", __func__, __LINE__);
+		return -EINVAL;
+	}
+	pctrl->gpio_state_active = pinctrl_lookup_state(pctrl->pinctrl, "quat_i2s_pa_act");
+	if (IS_ERR_OR_NULL(pctrl->gpio_state_active)) {
+		pr_err("%s:%d Failed to get the active state pinctrl handle\n",	__func__, __LINE__);
+		return -EINVAL;
+	}
+	pctrl->gpio_state_suspend = pinctrl_lookup_state(pctrl->pinctrl, "quat_i2s_pa_sus");
+	if (IS_ERR_OR_NULL(pctrl->gpio_state_suspend)) {
+		pr_err("%s:%d Failed to get the suspend state pinctrl handle\n", __func__, __LINE__);
+		return -EINVAL;
+	}
+	pctrl->pinctrl_status = true;
+	pr_debug("At %d In (%s)\n",__LINE__, __FUNCTION__);
+	
+	ret = msm_gpioset_activate(CLIENT_WCD_EXT, "quat_i2s_pa_act");
+	if (ret) {
+		pr_err("%s: gpio set cannot be de-activated %s\n",__func__, "quat_i2s_pa_act");
+		return ret;
+	}
+
+	return 0;
+}
+#endif
 static int msm8976_tasha_codec_event_cb(struct snd_soc_codec *codec,
 					enum wcd9335_codec_event codec_event)
 {
@@ -1951,6 +2012,28 @@ static int msm8976_tasha_codec_event_cb(struct snd_soc_codec *codec,
 		return -EINVAL;
 	}
 }
+
+#if defined(CONFIG_SND_SOC_TPA6130A2)
+void enable_tpa6130a2(void)
+{
+		pr_debug("At %d In (%s),will enable tpa6130a2,pdata_hph_pa->hph_pa_is_on = %d\n",__LINE__, __FUNCTION__ ,pdata_hph_pa->hph_pa_is_on);
+		schedule_delayed_work(&pdata_hph_pa->hph_pa_gpio_work, msecs_to_jiffies(1));
+		//ret = tpa6130a2_stereo_enable(codec, 1);
+		//if (ret < 0) pr_debug("At %d In (%s), tpa6130a2_stereo_enable() run fail\n",__LINE__, __FUNCTION__ );
+}
+EXPORT_SYMBOL_GPL(enable_tpa6130a2);
+
+void disable_tpa6130a2(void)
+{
+		int ret=0;
+		cancel_delayed_work_sync(&pdata_hph_pa->hph_pa_gpio_work);
+		pr_debug("At %d In (%s),close tpa6130a2 here\n",__LINE__, __FUNCTION__);
+		ret = tpa6130a2_stereo_enable(codec_hph_pa, 0);
+		if (ret < 0) pr_debug("At %d In (%s), tpa6130a2_stereo_enable() run fail\n",__LINE__, __FUNCTION__ );
+		pdata_hph_pa->hph_pa_is_on = 0;
+}
+EXPORT_SYMBOL_GPL(disable_tpa6130a2);
+#endif
 
 int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 {
@@ -1978,6 +2061,12 @@ int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	pr_debug("%s: dev_name%s\n", __func__, dev_name(cpu_dai->dev));
 
 	pdata = snd_soc_card_get_drvdata(codec->card);
+
+#if defined(CONFIG_SND_SOC_TPA6130A2)
+	codec_hph_pa = codec;
+	pdata_hph_pa = pdata;
+	pr_debug("At %d In (%s),codec_hph_pa and pdata_hph_pa get value from here\n",__LINE__, __FUNCTION__);
+#endif
 
 	rtd->pmdown_time = 0;
 
@@ -2316,7 +2405,7 @@ cpu_dai:
 						 "asoc-cpu-names",
 						 dai_link[i].cpu_dai_name);
 			if (index < 0) {
-				pr_debug("cpu-names not found index = %d\n", i);
+				pr_debug("cpu-names not found index = %d, name=%s\n", i, dai_link[i].cpu_dai_name);
 				goto codec_dai;
 			}
 			phandle = of_parse_phandle(cdev->of_node, "asoc-cpu",
@@ -2353,6 +2442,47 @@ codec_dai:
 err:
 	return ret;
 }
+
+#if defined(CONFIG_SND_SOC_TPA6130A2)
+static void msm8952_hph_ext_pa_delayed(struct work_struct *work)
+{
+	struct delayed_work *dwork;
+	struct msm8952_asoc_mach_data *pdata = NULL;
+	//struct snd_soc_card *card;
+	int ret=0;
+
+	dwork = to_delayed_work(work);
+	pdata = container_of(dwork, struct msm8952_asoc_mach_data, hph_pa_gpio_work);
+	pr_debug("At %d In (%s),enter,pdata->hph_pa_is_on=%d\n",__LINE__, __FUNCTION__,pdata->hph_pa_is_on);
+
+	if(pdata->hph_pa_is_on == 0)
+	{
+	pr_debug("At %d In (%s),open hph pa\n",__LINE__, __FUNCTION__);
+	ret = tpa6130a2_stereo_enable(codec_hph_pa, 1);
+	pdata->hph_pa_is_on = 2;
+	pr_debug("At %d In (%s),pdata->hph_pa_is_on=%d,ret=%d\n",__LINE__, __FUNCTION__,pdata->hph_pa_is_on,ret);
+	}
+}
+
+/*
+static void msm8x16_spk_ext_pa_close(struct work_struct *work)
+{
+	struct delayed_work *dwork;
+	struct msm8916_asoc_mach_data *pdata;
+
+	dwork = to_delayed_work(work);
+	pdata = container_of(dwork, struct msm8916_asoc_mach_data, pa_gpio_work_close);
+	pr_debug("At %d In (%s),enter,pdata->pa_is_on=%d\n",__LINE__, __FUNCTION__,pdata->pa_is_on);
+
+	//if(pdata->pa_is_on == 2)
+	{
+	pr_debug("At %d In (%s),close pa\n",__LINE__, __FUNCTION__);
+	msm8x16_spk_ext_pa_ctrl(pdata, false);
+	pa_is_on = 0;
+	}
+
+}*/
+#endif
 
 static int msm8952_asoc_machine_probe(struct platform_device *pdev)
 {
@@ -2438,6 +2568,11 @@ static int msm8952_asoc_machine_probe(struct platform_device *pdev)
 	pdev->id = 0;
 
 	INIT_DELAYED_WORK(&pdata->hs_detect_dwork, hs_detect_work);
+#if defined(CONFIG_SND_SOC_TPA6130A2)
+	INIT_DELAYED_WORK(&pdata->hph_pa_gpio_work, msm8952_hph_ext_pa_delayed);
+	pr_debug("At %d In (%s),hph_ext_pa_delayed work is created here \n",__LINE__, __FUNCTION__);
+	//INIT_DELAYED_WORK(&pdata->pa_gpio_work_close, msm8x16_spk_ext_pa_close);
+#endif
 	atomic_set(&pdata->clk_ref.quat_mi2s_clk_ref, 0);
 	atomic_set(&pdata->clk_ref.auxpcm_mi2s_clk_ref, 0);
 	card = populate_snd_card_dailinks(&pdev->dev);
@@ -2476,6 +2611,7 @@ static int msm8952_asoc_machine_probe(struct platform_device *pdev)
 				__func__, ext_pa);
 		pdata->ext_pa = 0;
 	}
+	pr_debug("At %d In (%s),num_strings=%d,ext_pa = 0x%x\n",__LINE__, __FUNCTION__,num_strings,pdata->ext_pa);
 	for (i = 0; i < num_strings; i++) {
 		of_property_read_string_index(pdev->dev.of_node,
 						ext_pa, i, &ext_pa_str);
@@ -2490,6 +2626,7 @@ static int msm8952_asoc_machine_probe(struct platform_device *pdev)
 		else if (!strcmp(ext_pa_str, "quinary"))
 			pdata->ext_pa = (pdata->ext_pa | QUIN_MI2S_ID);
 	}
+	pr_debug("At %d In (%s),ext_pa = 0x%x\n",__LINE__, __FUNCTION__,pdata->ext_pa);
 
 	/* Reading the gpio configurations from dtsi file*/
 	ret = msm_gpioset_initialize(CLIENT_WCD_EXT, &pdev->dev);
@@ -2508,9 +2645,16 @@ static int msm8952_asoc_machine_probe(struct platform_device *pdev)
 				__func__, ret);
 		goto err;
 	}
+	pr_debug("At %d In (%s),before return\n",__LINE__, __FUNCTION__);
 
+#if  0 //defined(CONFIG_SND_SOC_TFA98XX)
+	ret = smart_pa_pinctrl_support(pdev, pdata);
+	if (ret < 0)
+		pr_debug("At %d In (%s), error, smart pa pinctrl error\n",__LINE__, __FUNCTION__);
+#endif
 	return 0;
 err:
+	pr_debug("At %d In (%s),error\n",__LINE__, __FUNCTION__);
 	if (pdata->us_euro_gpio > 0) {
 		dev_dbg(&pdev->dev, "%s free us_euro gpio %d\n",
 			__func__, pdata->us_euro_gpio);

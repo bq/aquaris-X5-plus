@@ -280,6 +280,7 @@
 		    &qdsd_data0_spmi &qdsd_data3_spmi>;
 };
 
+/*
 &pm8950_cajon_dig {
 	status = "disabled";
 };
@@ -287,7 +288,7 @@
 &pm8950_cajon_analog {
 	status = "disabled";
 };
-
+*/
 &pm8004_mpps {
 	mpp@a300 { /* PM8004 MPP4 */
 		/* HDMI_vreg regulator enable */

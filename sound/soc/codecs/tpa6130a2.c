@@ -19,12 +19,13 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
  * 02110-1301 USA
  */
-
+//#define DEBUG
 #include <linux/module.h>
 #include <linux/errno.h>
 #include <linux/device.h>
 #include <linux/i2c.h>
 #include <linux/gpio.h>
+#include <linux/of_gpio.h>
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
 #include <sound/tpa6130a2-plat.h>
@@ -68,6 +69,7 @@ static int tpa6130a2_i2c_read(int reg)
 	} else {
 		val = data->regs[reg];
 	}
+	pr_debug("yht At %d In (%s),[reg:%d]=0x%x\n",__LINE__, __FUNCTION__,reg,val);
 
 	return val;
 }
@@ -86,6 +88,8 @@ static int tpa6130a2_i2c_write(int reg, u8 value)
 			dev_err(&tpa6130a2_client->dev, "Write failed\n");
 			return val;
 		}
+	} else {
+		printk(KERN_ERR "yht--,At %d In (%s),error, power_state is not on\n",__LINE__, __FUNCTION__);
 	}
 
 	/* Either powered on or off, we save the context */
@@ -101,6 +105,7 @@ static u8 tpa6130a2_read(int reg)
 	BUG_ON(tpa6130a2_client == NULL);
 	data = i2c_get_clientdata(tpa6130a2_client);
 
+	pr_debug("yht At %d In (%s),data->regs[%d]=0x%x\n",__LINE__, __FUNCTION__,reg,data->regs[reg]);
 	return data->regs[reg];
 }
 
@@ -114,6 +119,7 @@ static int tpa6130a2_initialize(void)
 
 	for (i = 1; i < TPA6130A2_REG_VERSION; i++) {
 		ret = tpa6130a2_i2c_write(i, data->regs[i]);
+		pr_debug("yht At %d In (%s),ret=%d,data->regs[%d]=0x%x\n",__LINE__, __FUNCTION__,ret,i,data->regs[i]);
 		if (ret < 0)
 			break;
 	}
@@ -129,49 +135,58 @@ static int tpa6130a2_power(u8 power)
 
 	BUG_ON(tpa6130a2_client == NULL);
 	data = i2c_get_clientdata(tpa6130a2_client);
+	printk(KERN_ERR "yht At %d In (%s),power=%d,power_state=%d,power_gpio state is %d\n",__LINE__, __FUNCTION__,power,data->power_state,gpio_get_value(data->power_gpio));
+	//if (power == 0) power = 1;
 
 	mutex_lock(&data->mutex);
 	if (power == data->power_state)
 		goto exit;
 
 	if (power) {
-		ret = regulator_enable(data->supply);
+		/*ret = regulator_enable(data->supply);
 		if (ret != 0) {
 			dev_err(&tpa6130a2_client->dev,
 				"Failed to enable supply: %d\n", ret);
 			goto exit;
-		}
+		}*/
 		/* Power on */
 		if (data->power_gpio >= 0)
 			gpio_set_value(data->power_gpio, 1);
 
 		data->power_state = 1;
 		ret = tpa6130a2_initialize();
+		pr_debug("yht At %d In (%s),tpa6130a2_initialize() ret=%d\n",__LINE__, __FUNCTION__,ret);
 		if (ret < 0) {
 			dev_err(&tpa6130a2_client->dev,
 				"Failed to initialize chip\n");
 			if (data->power_gpio >= 0)
 				gpio_set_value(data->power_gpio, 0);
-			regulator_disable(data->supply);
+			//regulator_disable(data->supply);
 			data->power_state = 0;
 			goto exit;
 		}
+		pr_debug("yht At %d In (%s),set data->power_gpio state is %d, ret=%d\n",__LINE__, __FUNCTION__,gpio_get_value(data->power_gpio),ret);
 	} else {
 		/* set SWS */
 		val = tpa6130a2_read(TPA6130A2_REG_CONTROL);
 		val |= TPA6130A2_SWS;
 		tpa6130a2_i2c_write(TPA6130A2_REG_CONTROL, val);
+		pr_debug("yht At %d In (%s),regs[%d]=0x%x,data->power_state=%d\n",__LINE__, __FUNCTION__,TPA6130A2_REG_CONTROL,val,data->power_state);
 
+		tpa6130a2_read(TPA6130A2_REG_CONTROL);
+		tpa6130a2_read(TPA6130A2_REG_VOL_MUTE);
+		tpa6130a2_read(TPA6130A2_REG_OUT_IMPEDANCE);
 		/* Power off */
 		if (data->power_gpio >= 0)
 			gpio_set_value(data->power_gpio, 0);
 
-		ret = regulator_disable(data->supply);
+		/*ret = regulator_disable(data->supply);
 		if (ret != 0) {
 			dev_err(&tpa6130a2_client->dev,
 				"Failed to disable supply: %d\n", ret);
 			goto exit;
-		}
+		}*/
+		pr_debug("yht At %d In (%s), get data->power_gpio state is %d,ret=%d\n",__LINE__, __FUNCTION__,gpio_get_value(data->power_gpio),ret);
 
 		data->power_state = 0;
 	}
@@ -303,39 +318,85 @@ static void tpa6130a2_channel_enable(u8 channel, int enable)
 		val |= channel;
 		val &= ~TPA6130A2_SWS;
 		tpa6130a2_i2c_write(TPA6130A2_REG_CONTROL, val);
+		pr_debug("yht At %d In (%s),regs[%d]=0x%x\n",__LINE__, __FUNCTION__,TPA6130A2_REG_CONTROL,val);
 
 		/* Unmute channel */
 		val = tpa6130a2_read(TPA6130A2_REG_VOL_MUTE);
 		val &= ~channel;
 		tpa6130a2_i2c_write(TPA6130A2_REG_VOL_MUTE, val);
+		pr_debug("yht At %d In (%s),regs[%d]=0x%x\n",__LINE__, __FUNCTION__,TPA6130A2_REG_VOL_MUTE,val);
+
+		#if defined(CONFIG_SND_SOC_TPA6130A2)
+		/* disable high impedance mode */
+		val = tpa6130a2_read(TPA6130A2_REG_OUT_IMPEDANCE);
+		val |= 0x3;
+		tpa6130a2_i2c_write(TPA6130A2_REG_OUT_IMPEDANCE, val);
+		pr_debug("yht At %d In (%s),regs[%d]=0x%x\n",__LINE__, __FUNCTION__,TPA6130A2_REG_OUT_IMPEDANCE,val);
+		#endif
+
 	} else {
 		/* Disable channel */
 		/* Mute channel */
 		val = tpa6130a2_read(TPA6130A2_REG_VOL_MUTE);
 		val |= channel;
 		tpa6130a2_i2c_write(TPA6130A2_REG_VOL_MUTE, val);
+		pr_debug("yht At %d In (%s),regs[%d]=0x%x\n",__LINE__, __FUNCTION__,TPA6130A2_REG_VOL_MUTE,val);
 
 		/* Disable amplifier */
 		val = tpa6130a2_read(TPA6130A2_REG_CONTROL);
 		val &= ~channel;
 		tpa6130a2_i2c_write(TPA6130A2_REG_CONTROL, val);
+		pr_debug("yht At %d In (%s),regs[%d]=0x%x\n",__LINE__, __FUNCTION__,TPA6130A2_REG_CONTROL,val);
+
+		#if defined(CONFIG_SND_SOC_TPA6130A2)
+		/* enable high impedance mode */
+		val = tpa6130a2_read(TPA6130A2_REG_OUT_IMPEDANCE);
+		val &= 0xFC;
+		tpa6130a2_i2c_write(TPA6130A2_REG_OUT_IMPEDANCE, val);
+		pr_debug("yht At %d In (%s),regs[%d]=0x%x\n",__LINE__, __FUNCTION__,TPA6130A2_REG_OUT_IMPEDANCE,val);
+
+		// software shutdown
+		//val = tpa6130a2_read(TPA6130A2_REG_CONTROL);		
+		//val |= TPA6130A2_SWS;
+		//tpa6130a2_i2c_write(TPA6130A2_REG_CONTROL, val);
+		//pr_debug("yht At %d In (%s),regs[%d]=0x%x\n",__LINE__, __FUNCTION__,TPA6130A2_REG_CONTROL,val);
+		#endif
+
 	}
 }
 
 int tpa6130a2_stereo_enable(struct snd_soc_codec *codec, int enable)
 {
 	int ret = 0;
+	#if defined(CONFIG_SND_SOC_TPA6130A2)
+	struct	tpa6130a2_data *data;
+
+	if (tpa6130a2_client == NULL)
+		return -ENODEV;
+	data = i2c_get_clientdata(tpa6130a2_client);
+	pr_debug("yht At %d In (%s),enable=%d,data->power_state=%d\n",__LINE__, __FUNCTION__,enable,data->power_state);
+	if (enable == data->power_state) {
+		return ret;
+	}
+	pr_debug("yht At %d In (%s),start to run\n",__LINE__, __FUNCTION__);
+	#endif
+
 	if (enable) {
 		ret = tpa6130a2_power(1);
 		if (ret < 0)
 			return ret;
 		tpa6130a2_channel_enable(TPA6130A2_HP_EN_R | TPA6130A2_HP_EN_L,
 					 1);
+		tpa6130a2_read(TPA6130A2_REG_CONTROL);
+		tpa6130a2_read(TPA6130A2_REG_VOL_MUTE);
+		tpa6130a2_read(TPA6130A2_REG_OUT_IMPEDANCE);
 	} else {
 		tpa6130a2_channel_enable(TPA6130A2_HP_EN_R | TPA6130A2_HP_EN_L,
 					 0);
 		ret = tpa6130a2_power(0);
 	}
+	printk(KERN_ERR "yht--,At %d In (%s),enable=%d,regs[%d]=0x%x,regs[%d]=0x%x,regs[%d]=0x%x\n",__LINE__, __FUNCTION__,enable,
+		TPA6130A2_REG_CONTROL,data->regs[TPA6130A2_REG_CONTROL],TPA6130A2_REG_VOL_MUTE,data->regs[TPA6130A2_REG_VOL_MUTE],TPA6130A2_REG_OUT_IMPEDANCE,data->regs[TPA6130A2_REG_OUT_IMPEDANCE]);
 
 	return ret;
 }
@@ -347,6 +408,7 @@ int tpa6130a2_add_controls(struct snd_soc_codec *codec)
 
 	if (tpa6130a2_client == NULL)
 		return -ENODEV;
+	pr_debug("yht At %d In (%s)\n",__LINE__, __FUNCTION__);
 
 	data = i2c_get_clientdata(tpa6130a2_client);
 
@@ -359,22 +421,79 @@ int tpa6130a2_add_controls(struct snd_soc_codec *codec)
 }
 EXPORT_SYMBOL_GPL(tpa6130a2_add_controls);
 
+#if defined(CONFIG_SND_SOC_TPA6130A2)
+static int parse_tpa6130a2_info(struct device *dev, struct tpa6130a2_data *data)
+{
+	int ret = 0;
+	struct device_node *np = dev->of_node;
+
+	data->power_gpio = of_get_named_gpio(np, "qcom,tpa6130a2-en", 0);
+	if ((!gpio_is_valid(data->power_gpio))) {
+		pr_err("Error reading idata->power_gpio =%d\n", data->power_gpio);
+		ret = -EINVAL;
+		goto err_get;
+	} else
+		pr_err("data->power_gpio=%d\n", data->power_gpio);
+	pr_debug("yht At %d In (%s),ok, ret=%d\n",__LINE__, __FUNCTION__,ret);
+
+	if (gpio_is_valid(data->power_gpio)){
+		pr_debug("yht At %d In (%s)\n",__LINE__, __FUNCTION__);
+		ret = gpio_request_one(data->power_gpio,GPIOF_DIR_OUT | GPIOF_INIT_LOW, "tpa6130a2-en-pin");
+		if (ret) {
+			pr_err("unable to request gpio [%d]\n", data->power_gpio);
+			pr_debug("yht At %d In (%s),ok, ret=%d\n",__LINE__, __FUNCTION__,ret);
+			goto err_request;
+		}
+/*		ret = gpio_request(data->power_gpio, "tpa6130a2-en-pin");
+		if (ret < 0) {
+			pr_err("unable to request gpio [%d]\n", data->power_gpio);
+			pr_debug("yht At %d In (%s),ok, ret=%d\n",__LINE__, __FUNCTION__,ret);
+			goto err_request;
+		}
+		
+		pr_debug("yht At %d In (%s),set gpio_direction_output\n",__LINE__, __FUNCTION__);
+		ret = gpio_direction_output(data->power_gpio,0);
+		if (ret < 0) {
+			pr_err("unable to request gpio [%d]\n", data->power_gpio);
+			pr_debug("yht At %d In (%s),ok, ret=%d\n",__LINE__, __FUNCTION__,ret);
+			goto err_request;
+		}*/
+
+		pr_debug("yht At %d In (%s),set data->power_gpio to low\n",__LINE__, __FUNCTION__);
+		gpio_set_value(data->power_gpio, 0);
+		pr_debug("yht At %d In (%s),set data->power_gpio state is %d\n",__LINE__, __FUNCTION__,gpio_get_value(data->power_gpio));
+	}
+	pr_debug("yht At %d In (%s),ok, ret=%d\n",__LINE__, __FUNCTION__,ret);
+
+	return ret;
+
+err_request:
+err_get:
+	pr_debug("yht At %d In (%s),error, ret=%d\n",__LINE__, __FUNCTION__,ret);
+	ret = -EINVAL;
+	return ret;
+}
+#endif
+
 static int tpa6130a2_probe(struct i2c_client *client,
 			   const struct i2c_device_id *id)
 {
 	struct device *dev;
 	struct tpa6130a2_data *data;
-	struct tpa6130a2_platform_data *pdata;
+	//struct tpa6130a2_platform_data *pdata;
 	const char *regulator;
 	int ret;
 
 	dev = &client->dev;
+#if defined(CONFIG_SND_SOC_TPA6130A2)
+	pr_debug("yht At %d In (%s),\n",__LINE__, __FUNCTION__);
 
-	if (client->dev.platform_data == NULL) {
+/*	if (client->dev.platform_data == NULL) {
 		dev_err(dev, "Platform data not set\n");
 		dump_stack();
 		return -ENODEV;
-	}
+	}*/
+#endif
 
 	data = devm_kzalloc(&client->dev, sizeof(*data), GFP_KERNEL);
 	if (data == NULL) {
@@ -384,20 +503,44 @@ static int tpa6130a2_probe(struct i2c_client *client,
 
 	tpa6130a2_client = client;
 
+#if defined(CONFIG_SND_SOC_TPA6130A2)
+	ret = parse_tpa6130a2_info(&client->dev, data);
+	if (ret < 0) {
+		pr_err("invalid earPA pin - %d\n", data->power_gpio);
+		return -EINVAL;
+	}
+	pr_debug("yht At %d In (%s),\n",__LINE__, __FUNCTION__);
+#endif
+
 	i2c_set_clientdata(tpa6130a2_client, data);
 
-	pdata = client->dev.platform_data;
-	data->power_gpio = pdata->power_gpio;
+	//pdata = client->dev.platform_data;
+	//data->power_gpio = pdata->power_gpio;
 	data->id = id->driver_data;
+	pr_debug("yht At %d In (%s),data->power_gpio=%d,data->id=%d\n",__LINE__, __FUNCTION__,data->power_gpio,data->id);
 
 	mutex_init(&data->mutex);
 
 	/* Set default register values */
+	/*
 	data->regs[TPA6130A2_REG_CONTROL] =	TPA6130A2_SWS;
 	data->regs[TPA6130A2_REG_VOL_MUTE] =	TPA6130A2_MUTE_R |
 						TPA6130A2_MUTE_L;
+	*/
+	/*
+	// this is for test
+	data->regs[TPA6130A2_REG_CONTROL] =	TPA6130A2_HP_EN_L |TPA6130A2_HP_EN_R;
+	data->regs[TPA6130A2_REG_VOL_MUTE] =	TPA6130A2_VOLUME(0x3f);
+	data->regs[TPA6130A2_REG_OUT_IMPEDANCE] =	TPA6130A2_HIZ_R | TPA6130A2_HIZ_L;
+	//data->regs[TPA6130A2_REG_VERSION] =
+	*/
+	 // temparory remove
+	data->regs[TPA6130A2_REG_CONTROL] =	TPA6130A2_SWS;
+	data->regs[TPA6130A2_REG_VOL_MUTE] = TPA6130A2_MUTE_R | TPA6130A2_MUTE_L | TPA6130A2_VOLUME(0x3f);
+	//data->regs[TPA6130A2_REG_OUT_IMPEDANCE] =	TPA6130A2_HIZ_R | TPA6130A2_HIZ_L;
 
-	if (data->power_gpio >= 0) {
+#if defined(CONFIG_SND_SOC_TPA6130A2)
+/*	if (data->power_gpio >= 0) {
 		ret = devm_gpio_request(dev, data->power_gpio,
 					"tpa6130a2 enable");
 		if (ret < 0) {
@@ -406,7 +549,9 @@ static int tpa6130a2_probe(struct i2c_client *client,
 			goto err_gpio;
 		}
 		gpio_direction_output(data->power_gpio, 0);
-	}
+	}*/
+	pr_debug("yht At %d In (%s),\n",__LINE__, __FUNCTION__);
+#endif
 
 	switch (data->id) {
 	default:
@@ -420,12 +565,12 @@ static int tpa6130a2_probe(struct i2c_client *client,
 		break;
 	}
 
-	data->supply = devm_regulator_get(dev, regulator);
+/*	data->supply = devm_regulator_get(dev, regulator);
 	if (IS_ERR(data->supply)) {
 		ret = PTR_ERR(data->supply);
 		dev_err(dev, "Failed to request supply: %d\n", ret);
 		goto err_gpio;
-	}
+	}*/
 
 	ret = tpa6130a2_power(1);
 	if (ret != 0)
@@ -435,6 +580,7 @@ static int tpa6130a2_probe(struct i2c_client *client,
 	/* Read version */
 	ret = tpa6130a2_i2c_read(TPA6130A2_REG_VERSION) &
 				 TPA6130A2_VERSION_MASK;
+	pr_debug("yht At %d In (%s),ret=%d\n",__LINE__, __FUNCTION__,ret);
 	if ((ret != 1) && (ret != 2))
 		dev_warn(dev, "UNTESTED version detected (%d)\n", ret);
 

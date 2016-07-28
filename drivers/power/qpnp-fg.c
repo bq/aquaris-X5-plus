@@ -4910,7 +4910,7 @@ static int fg_of_init(struct fg_chip *chip)
 				* FULL_SOC_RAW, FULL_CAPACITY);
 	OF_READ_SETTING(FG_MEM_RESUME_SOC, "resume-soc-raw", rc, 1);
 	OF_READ_SETTING(FG_MEM_IRQ_VOLT_EMPTY, "irq-volt-empty-mv", rc, 1);
-	OF_READ_SETTING(FG_MEM_VBAT_EST_DIFF, "vbat-estimate-diff-mv", rc, 1);
+	OF_READ_SETTING(FG_MEM_VBAT_EST_DIFF, "fg-vbat-estimate-diff-mv", rc, 1);
 	OF_READ_SETTING(FG_MEM_DELTA_SOC, "fg-delta-soc", rc, 1);
 	OF_READ_SETTING(FG_MEM_SOC_MAX, "fg-soc-max", rc, 1);
 	OF_READ_SETTING(FG_MEM_SOC_MIN, "fg-soc-min", rc, 1);
@@ -5676,6 +5676,7 @@ static int fg_common_hw_init(struct fg_chip *chip)
 {
 	int rc;
 	int resume_soc_raw;
+	u16 address_soc_delta;
 
 	update_iterm(chip);
 	update_cutoff_voltage(chip);
@@ -5702,7 +5703,13 @@ static int fg_common_hw_init(struct fg_chip *chip)
 		}
 	}
 
-	rc = fg_mem_masked_write(chip, settings[FG_MEM_DELTA_SOC].address, 0xFF,
+	address_soc_delta = settings[FG_MEM_DELTA_SOC].address;
+	if (settings[FG_MEM_DELTA_SOC].value < 3)
+		rc = fg_mem_masked_write(chip, address_soc_delta, 0xFF,
+			1,
+			settings[FG_MEM_DELTA_SOC].offset);
+	else
+		rc = fg_mem_masked_write(chip, address_soc_delta, 0xFF,
 			soc_to_setpoint(settings[FG_MEM_DELTA_SOC].value),
 			settings[FG_MEM_DELTA_SOC].offset);
 	if (rc) {

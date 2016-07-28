@@ -650,9 +650,11 @@ static int32_t msm_sensor_driver_is_special_support(
 }
 
 /* static function definition */
+extern struct vendor_eeprom s_vendor_eeprom[CAMERA_VENDOR_EEPROM_COUNT_MAX];
 int32_t msm_sensor_driver_probe(void *setting,
 	struct msm_sensor_info_t *probed_info, char *entity_name)
 {
+	uint8_t i = 0;
 	int32_t                              rc = 0;
 	struct msm_sensor_ctrl_t            *s_ctrl = NULL;
 	struct msm_camera_cci_client        *cci_client = NULL;
@@ -742,6 +744,26 @@ int32_t msm_sensor_driver_probe(void *setting,
 			rc = -EFAULT;
 			goto free_slave_info;
 		}
+	}
+
+	pr_info("%s camera eeprom_name=%s\n",__func__, slave_info->eeprom_name);//slave_info is from userspace
+	for(i=0; i<CAMERA_VENDOR_EEPROM_COUNT_MAX; i++){
+		pr_info("dtsi eeprom_name[%d]=%s, module_id=%d\n",i,s_vendor_eeprom[i].eeprom_name, s_vendor_eeprom[i].module_id);//s_vendor_eeprom is from kernel camera dtsi
+		if(strcmp(slave_info->eeprom_name,s_vendor_eeprom[i].eeprom_name) == 0){
+			if(((strcmp(slave_info->sensor_name,"imx298") == 0) && (s_vendor_eeprom[i].module_id == MID_SUNNY))
+				|| ((strcmp(slave_info->sensor_name,"imx298_cmb087qr") == 0) && (s_vendor_eeprom[i].module_id == MID_TRULY))
+				|| ((strcmp(slave_info->sensor_name,"imx219_d8n03d") == 0) && (s_vendor_eeprom[i].module_id == MID_SUNNY))
+				|| ((strcmp(slave_info->sensor_name,"imx219_cmb104") == 0) && (s_vendor_eeprom[i].module_id == MID_TRULY))
+				){
+				pr_info("module found!probe continue!eeprom_name=%s\n", slave_info->eeprom_name);
+				break;
+			}
+		}
+	}
+	if(i >= CAMERA_VENDOR_EEPROM_COUNT_MAX){
+		pr_err("module not found!probe break!\n");
+		rc = -EFAULT;
+		goto free_slave_info;
 	}
 
 	/* Print slave info */
@@ -989,6 +1011,8 @@ CSID_TG:
 	s_ctrl->sensordata->cam_slave_info = slave_info;
 
 	msm_sensor_fill_sensor_info(s_ctrl, probed_info, entity_name);
+	msm_sensor_init_device_name();
+	msm_sensor_set_module_info(s_ctrl);
 
 	return rc;
 

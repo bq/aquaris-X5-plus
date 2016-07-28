@@ -371,7 +371,7 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 			gpio_set_value((ctrl_pdata->disp_en_gpio), 0);
 			gpio_free(ctrl_pdata->disp_en_gpio);
 		}
-		gpio_set_value((ctrl_pdata->rst_gpio), 0);
+		gpio_set_value((ctrl_pdata->rst_gpio), 1);
 		gpio_free(ctrl_pdata->rst_gpio);
 		if (gpio_is_valid(ctrl_pdata->lcd_mode_sel_gpio))
 			gpio_free(ctrl_pdata->lcd_mode_sel_gpio);
@@ -612,11 +612,14 @@ static void mdss_dsi_panel_switch_mode(struct mdss_panel_data *pdata,
 	return;
 }
 
+extern int lm3697_mdss_backlight_set(u32 level);
 static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 							u32 bl_level)
 {
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 	struct mdss_dsi_ctrl_pdata *sctrl = NULL;
+	//u32 temp;
+	static u32 old_bl_level=0;
 
 	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
@@ -635,12 +638,18 @@ static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 	if ((bl_level < pdata->panel_info.bl_min) && (bl_level != 0))
 		bl_level = pdata->panel_info.bl_min;
 
+	if(bl_level==0 || (old_bl_level==0 && bl_level!=0)){
+			pr_info("%s, bl_level=%d\n",__func__,bl_level);
+		}
+
 	switch (ctrl_pdata->bklt_ctrl) {
 	case BL_WLED:
 		led_trigger_event(bl_led_trigger, bl_level);
 		break;
 	case BL_PWM:
+		//temp = bl_level > 0 ? pdata->panel_info.bl_max : bl_level;
 		mdss_dsi_panel_bklt_pwm(ctrl_pdata, bl_level);
+		lm3697_mdss_backlight_set(bl_level);
 		break;
 	case BL_DCS_CMD:
 		if (!mdss_dsi_sync_wait_enable(ctrl_pdata)) {
@@ -671,6 +680,7 @@ static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 			__func__);
 		break;
 	}
+	old_bl_level = bl_level;
 }
 
 static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)

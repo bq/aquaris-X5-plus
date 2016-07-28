@@ -1,0 +1,61 @@
+/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+qcom,gohan_atl_3100mah {
+	/* #2319457_atl_gohan_3100mAh_averaged_MasterSlave_Feb22nd2016*/
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <3100>;
+	qcom,batt-id-kohm = <47>;
+	qcom,battery-beta = <3380>;
+	qcom,battery-type = "gohan_atl_atl_3100mah_feb22nd2016";
+	qcom,chg-rslow-comp-c1 = <2860849>;
+	qcom,chg-rslow-comp-c2 = <3309294>;
+	qcom,chg-rs-to-rslow = <747968>;
+	qcom,chg-rslow-comp-thr = <0x99>;
+	qcom,checksum = <0xB369>;
+	qcom,thermal-coefficients = [DA 86 F0 50 08 3C];
+	qcom,gui-version = "PMI8950GUI - 2.0.0.15";
+	qcom,fg-profile-data = [
+		 E3 83 E1 7C
+		 10 81 13 77
+		 6B 83 12 76
+		 8F 8A 6A 95
+		 2E 82 A1 99
+		 6E BC A8 C8
+		 52 12 F7 83
+		 26 7D 20 81
+		 00 77 4E 83
+		 E1 70 66 60
+		 DC 7E 72 82
+		 68 98 9F B6
+		 72 C2 58 0E
+		 B1 0C 7A 5B
+		 14 70 9F FD
+		 03 35 A9 3D
+		 5E 34 00 00
+		 92 44 5D 30
+		 1D 36 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 28 6A E7 68
+		 48 69 7F 82
+		 A8 74 73 63
+		 4D 54 9B 7A
+		 10 74 74 61
+		 DE 61 88 AA
+		 17 70 62 48
+		 64 A0 71 0C
+		 28 00 FF 36
+		 F0 11 30 03
+		 00 00 00 0C
+	];
+};

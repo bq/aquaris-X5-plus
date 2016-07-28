@@ -28,6 +28,9 @@ static int msm_isp_update_dual_HW_ms_info_at_start(
 	struct vfe_device *vfe_dev,
 	enum msm_vfe_input_src stream_src);
 
+#define DUAL_VFE_AND_VFE1(s, v) ((s->stream_src < RDI_INTF_0) && \
+			v->is_split && vfe_dev->pdev->id == ISP_VFE1)
+
 static void msm_isp_update_dual_HW_axi(
 	struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_stream *stream_info);
@@ -64,6 +67,7 @@ int msm_isp_axi_create_stream(struct vfe_device *vfe_dev,
 	ISP_DBG("%s: vfe %d handle %x\n", __func__, vfe_dev->pdev->id,
 		stream_cfg_cmd->axi_stream_handle);
 
+pr_err("lok : msm_isp_axi_create_stream: stream_cfg_cmd->[session_id: %d stream_id: %d]\n",stream_cfg_cmd->session_id, stream_cfg_cmd->stream_id);
 	memset(&axi_data->stream_info[i], 0,
 		   sizeof(struct msm_vfe_axi_stream));
 	spin_lock_init(&axi_data->stream_info[i].lock);
@@ -207,6 +211,7 @@ int msm_isp_validate_axi_request(struct msm_vfe_axi_shared_data *axi_data,
 
 	for (i = 0; i < stream_info->num_planes; i++) {
 		stream_info->plane_cfg[i] = stream_cfg_cmd->plane_cfg[i];
+		//pr_err("%s stream id %d plane[%d].offset 0x%x\n", __func__, stream_info->stream_id, i, stream_info->plane_cfg[i].plane_addr_offset);
 		stream_info->max_width = max(stream_info->max_width,
 			stream_cfg_cmd->plane_cfg[i].output_width);
 	}
@@ -1258,12 +1263,61 @@ void msm_isp_axi_stream_update(struct vfe_device *vfe_dev,
 		complete(&vfe_dev->stream_config_complete);
 }
 
+static void msm_isp_update_ping_pong_offset(struct vfe_device *vfe_dev,
+		struct msm_vfe_axi_stream *stream_info)
+{
+	int j;
+	uint32_t pingpong_bit;
+//	int32_t buf_size_byte = 0;
+	int32_t word_per_line = 0;
+	uint32_t pingpong_status;
+	struct msm_isp_buffer *buf = NULL;
+
+	pingpong_status =
+		vfe_dev->hw_info->vfe_ops.axi_ops.get_pingpong_status(vfe_dev);
+	pingpong_bit = ((pingpong_status >> stream_info->wm[0]) & 0x1);
+	pingpong_bit = !pingpong_bit;
+	if (pingpong_bit < 2)
+		buf = stream_info->buf[pingpong_bit];
+	pr_err("%s pingpong_status 0x%x wm %d streamid %x"
+		"pingpong_bit %d buf %p\n",
+		__func__, pingpong_status, stream_info->wm[0],
+		stream_info->stream_id,
+		pingpong_bit, buf);
+	if (buf) {
+		for (j = 0; j < stream_info->num_planes; j++) {
+			word_per_line = msm_isp_cal_word_per_line(
+				stream_info->output_format, stream_info->
+				plane_cfg[j].output_stride);
+			if (word_per_line < 0) {
+				/* 0 means no prefetch*/
+				word_per_line = 0;
+				//buf_size_byte = 0;
+			} /*else {
+				buf_size_byte = (word_per_line * 8 *
+					stream_info->plane_cfg[j].
+					output_scan_lines) - stream_info->
+					plane_cfg[j].plane_addr_offset;
+			}*/
+         pr_err("%s: VFE id %d paddr:0x%p plane_addr_offset:0x%x\n",__func__,vfe_dev->pdev->id,(void*)buf->mapped_info[j].paddr,stream_info->plane_cfg[j].plane_addr_offset);
+
+			vfe_dev->hw_info->vfe_ops.axi_ops.update_ping_pong_addr(
+				vfe_dev->vfe_base, stream_info->wm[j],
+				~pingpong_bit, buf->mapped_info[j].paddr +
+				stream_info->plane_cfg[j].plane_addr_offset);
+		}
+	}
+}
+
 static void msm_isp_reload_ping_pong_offset(struct vfe_device *vfe_dev,
 		struct msm_vfe_axi_stream *stream_info)
 {
 	int i, j;
 	uint32_t bit;
 	struct msm_isp_buffer *buf;
+	uint32_t pingpong_status;
+	uint32_t pingpong_bit = 0;
+//	pr_err("%s: VFE id %d stream_id 0x%x  sw_ping_pong_bit before :%d\n",__func__,vfe_dev->pdev->id,stream_info->stream_id,stream_info->sw_ping_pong_bit);
 	for (i = 0; i < 2; i++) {
 		buf = stream_info->buf[i];
 		if (!buf)
@@ -1274,6 +1328,59 @@ static void msm_isp_reload_ping_pong_offset(struct vfe_device *vfe_dev,
 				vfe_dev->vfe_base, stream_info->wm[j], bit,
 				buf->mapped_info[j].paddr +
 				stream_info->plane_cfg[j].plane_addr_offset);
+			if (stream_info->controllable_output) {
+
+			pingpong_status =
+				vfe_dev->hw_info->vfe_ops.axi_ops.get_pingpong_status(vfe_dev);
+			pingpong_bit = (~(pingpong_status >> stream_info->wm[0]) & 0x1);
+		 pr_err("%s: VFE id %d stream_id 0x%x HW frame id:%d strem info frame id :%d HW ping_pong %d sw_ping_pong_bit  :%d  buf ping %d paddr:0x%p \n",__func__,vfe_dev->pdev->id,stream_info->stream_id,
+		 	vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id,stream_info->frame_id,pingpong_bit,stream_info->sw_ping_pong_bit,bit,(void*)buf->mapped_info[j].paddr);
+				}
+		}
+	}
+//	if (stream_info->controllable_output) {
+//		stream_info->sw_ping_pong_bit ^= 1;
+ //	pr_err("%s:VFE id %d stream_id 0x%x sw_ping_pong_bit after :%d\n",__func__,vfe_dev->pdev->id,stream_info->stream_id,stream_info->sw_ping_pong_bit);
+//		}
+}
+
+void msm_isp_axi_cfg_update_pending(struct vfe_device *vfe_dev,
+	enum msm_vfe_input_src frame_src)
+{
+	int i;
+	unsigned long flags;
+	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
+	struct msm_vfe_axi_stream *stream_info;
+
+	for (i = 0; i < VFE_AXI_SRC_MAX; i++) {
+		if (SRC_TO_INTF(axi_data->stream_info[i].stream_src) !=
+			frame_src) {
+			continue;
+		}
+		stream_info = &axi_data->stream_info[i];
+
+		if ((stream_info->stream_type == BURST_STREAM &&
+			!stream_info->controllable_output) ||
+			stream_info->state == AVAILABLE)
+			continue;
+		if (stream_info->state == UPDATE_PENDING) {
+			pr_err("%s vfe_id %d stream id %x frameid %d\n",
+				__func__, vfe_dev->pdev->id, stream_info
+				->stream_id, vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id);
+			if (DUAL_VFE_AND_VFE1(stream_info,
+				vfe_dev)) {
+				spin_lock_irqsave(&stream_info->lock, flags);
+					/*AXI offset for VFE1*/
+					msm_isp_update_ping_pong_offset(
+					vfe_dev, stream_info);
+					/*Resume AXI*/
+					stream_info->state = RESUMING;
+					atomic_set(&vfe_dev->axi_data.
+						axi_cfg_update[SRC_TO_INTF(
+						stream_info->stream_src)],
+						APPLYING_UPDATE_RESUME);
+					spin_unlock_irqrestore(&stream_info->lock, flags);
+				}
 		}
 	}
 }
@@ -1314,6 +1421,7 @@ void msm_isp_axi_cfg_update(struct vfe_device *vfe_dev,
 			msm_isp_update_dual_HW_axi(vfe_dev,
 				stream_info);
 		} else if (stream_info->state == RESUMING) {
+			pr_err("%s resuming update to resume on frame id %d\n", __func__, vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id);
 			msm_isp_update_dual_HW_stream_state(vfe_dev,
 				stream_info);
 		}
@@ -1349,6 +1457,7 @@ static void msm_isp_get_done_buf(struct vfe_device *vfe_dev,
 	}
 
 	if (stream_info->controllable_output) {
+
 		stream_info->buf[pingpong_bit] = NULL;
 		if (!stream_info->undelivered_request_cnt) {
 			pr_err_ratelimited("%s:%d error undelivered_request_cnt 0\n",
@@ -1356,9 +1465,12 @@ static void msm_isp_get_done_buf(struct vfe_device *vfe_dev,
 		} else {
 			stream_info->undelivered_request_cnt--;
 			if (pingpong_bit != stream_info->sw_ping_pong_bit) {
-				pr_err("%s:%d ping pong bit actual %d sw %d\n",
+//				pr_err("%s:%d ping pong bit actual %d sw %d\n",
+				pr_err("%s:%d ping pong bit actual %d sw %d  frame_id:%d reg_update_frame_id:%d \n",
 				__func__, __LINE__, pingpong_bit,
-				stream_info->sw_ping_pong_bit);
+				stream_info->sw_ping_pong_bit,vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id,
+                       vfe_dev->axi_data.src_info[VFE_PIX_0].reg_update_frame_id);
+//				stream_info->sw_ping_pong_bit);
 				error_event.frame_id =
 					vfe_dev->axi_data.src_info[VFE_PIX_0].
 						frame_id;
@@ -1366,6 +1478,7 @@ static void msm_isp_get_done_buf(struct vfe_device *vfe_dev,
 					ISP_EVENT_IOMMU_P_FAULT, &error_event);
 			}
 		stream_info->sw_ping_pong_bit ^= 1;
+
 		}
 	}
 }
@@ -1781,6 +1894,7 @@ static void msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 			ISP_DBG("%s: vfe_id %d send buf done buf-id %d bufq %x\n",
 				__func__, vfe_dev->pdev->id, buf->buf_idx,
 				buf->bufq_handle);
+
 			msm_isp_send_event(vfe_dev, ISP_EVENT_BUF_DONE,
 				&buf_event);
 			vfe_dev->buf_mgr->ops->buf_done(vfe_dev->buf_mgr,
@@ -2664,6 +2778,7 @@ static int msm_isp_stop_axi_stream(struct vfe_device *vfe_dev,
 		stream_info->state = STOP_PENDING;
 		pr_debug("%s, Stream 0x%x,\n", __func__,
 			stream_info->stream_id);
+
 		if (stream_info->stream_src == CAMIF_RAW ||
 			stream_info->stream_src == IDEAL_RAW) {
 			/* We dont get reg update IRQ for raw snapshot
@@ -2929,6 +3044,8 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_stream_request_cmd stream_cfg_cmd;
 	struct msm_vfe_frame_request_queue *queue_req;
 	uint32_t pingpong_status;
+	uint32_t pingpong_bit;
+	uint32_t pingpong_test;
 	unsigned long flags;
 	int rc = 0;
 	enum msm_vfe_input_src frame_src = 0;
@@ -3065,6 +3182,15 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 			return rc;
 		}
 	}
+    if(vfe_dev->pdev->id == 1 )
+    	{
+    	pingpong_bit = (~(pingpong_status >>
+			stream_info->wm[0]) & 0x1);
+		if(stream_info->sw_ping_pong_bit)
+			pingpong_test = 0;
+		  else
+		  	pingpong_test = 1;
+    	}
 
 	msm_isp_calculate_framedrop(&vfe_dev->axi_data, &stream_cfg_cmd);
 	msm_isp_reset_framedrop(vfe_dev, stream_info);
@@ -3217,9 +3343,14 @@ int msm_isp_update_axi_stream(struct vfe_device *vfe_dev, void *arg)
 			for (j = 0; j < stream_info->num_planes; j++) {
 				stream_info->plane_cfg[j] =
 					update_info->plane_cfg[j];
+				//pr_err("%s stream id %d plane[%d].offset 0x%x\n", __func__, stream_info->stream_id, j, stream_info->plane_cfg[j].plane_addr_offset);
+
 			}
 			stream_info->output_format = update_info->output_format;
-			if (stream_info->state == ACTIVE) {
+//			if (stream_info->state == ACTIVE) {
+			if ((stream_info->state == ACTIVE) &&
+				(vfe_dev->is_split == 1)) {
+				if (vfe_dev->hw_info->runtime_axi_update == 0) {
 				stream_info->state = PAUSE_PENDING;
 				msm_isp_axi_stream_enable_cfg(
 					vfe_dev, stream_info, 1);
@@ -3228,6 +3359,57 @@ int msm_isp_update_axi_stream(struct vfe_device *vfe_dev, void *arg)
 					axi_cfg_update[SRC_TO_INTF(
 					stream_info->stream_src)],
 					UPDATE_REQUESTED);
+					spin_unlock_irqrestore(
+						&stream_info->lock, flags);
+				} else if (DUAL_VFE_AND_VFE1(stream_info, vfe_dev)) {
+					int vfe_id;
+					uint32_t stream_idx =
+						HANDLE_TO_IDX(stream_info->
+						stream_handle);
+					struct msm_vfe_axi_stream *vfe_stream_info;
+					struct vfe_device *vfe_temp_dev;
+				   for (vfe_id = 0; vfe_id < MAX_VFE; vfe_id++) {
+					   	vfe_temp_dev = vfe_dev->common_data
+							->dual_vfe_res->vfe_dev[vfe_id];
+						vfe_stream_info = &vfe_dev->common_data
+							->dual_vfe_res->axi_data[vfe_id]
+							->stream_info[stream_idx];
+						for (j = 0; j < vfe_stream_info->num_planes; j++) {
+							vfe_temp_dev
+							->hw_info->vfe_ops.axi_ops.
+							cfg_wm_reg(vfe_dev->common_data
+							->dual_vfe_res->vfe_dev[vfe_id],
+							vfe_stream_info, j);
+							}
+						spin_lock_irqsave(&vfe_stream_info
+							->lock, flags);
+						if (vfe_stream_info->state != ACTIVE)
+							vfe_stream_info->runtime_output_format =
+								vfe_stream_info->output_format;
+						else
+#if 1
+							vfe_stream_info->state = UPDATE_PENDING;
+#endif
+#if 0 /*Lokesh/Shilpa: changes */
+						if(vfe_id == ISP_VFE1) {
+								/*AXI offset for VFE1*/
+								msm_isp_update_ping_pong_offset(
+								vfe_temp_dev, stream_info);
+								/*Resume AXI*/
+								stream_info->state = RESUMING;
+								atomic_set(&vfe_dev->axi_data.
+									axi_cfg_update[SRC_TO_INTF(
+									stream_info->stream_src)],
+									APPLYING_UPDATE_RESUME);
+						}
+#endif
+						pr_err("%s vfe_id %d stream id %x frame_id %d\n",
+							__func__, vfe_dev->pdev->id, stream_info
+							->stream_id, vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id);
+						spin_unlock_irqrestore(&vfe_stream_info->lock,
+							flags);
+					}
+				}
 			} else {
 				for (j = 0; j < stream_info->num_planes; j++)
 					vfe_dev->hw_info->vfe_ops.axi_ops.

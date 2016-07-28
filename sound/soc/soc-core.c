@@ -3894,6 +3894,7 @@ static int snd_soc_register_dais(struct device *dev,
 		mutex_unlock(&client_mutex);
 
 		dev_dbg(dai->dev, "ASoC: Registered DAI '%s'\n", dai->name);
+		//printk(KERN_ERR "yht--,At %d In (%s),Registered DAI = %s, %d of %d\n",__LINE__, __FUNCTION__,dai->name,i,count);
 	}
 
 	return 0;
@@ -4083,6 +4084,7 @@ int snd_soc_register_codec(struct device *dev,
 	int ret, i;
 
 	dev_dbg(dev, "codec register %s\n", dev_name(dev));
+	//printk(KERN_ERR "yht--,At %d In (%s),codec register %s\n",__LINE__, __FUNCTION__,dev_name(dev));
 
 	codec = kzalloc(sizeof(struct snd_soc_codec), GFP_KERNEL);
 	if (codec == NULL)
@@ -4094,6 +4096,7 @@ int snd_soc_register_codec(struct device *dev,
 		ret = -ENOMEM;
 		goto fail_codec;
 	}
+	//printk(KERN_ERR "yht--,At %d In (%s),codec->name =%s\n",__LINE__, __FUNCTION__,codec->name);
 
 	if (codec_drv->compress_type)
 		codec->compress_type = codec_drv->compress_type;
@@ -4162,16 +4165,19 @@ int snd_soc_register_codec(struct device *dev,
 	}
 
 	dev_dbg(codec->dev, "ASoC: Registered codec '%s'\n", codec->name);
+	//printk(KERN_ERR "yht--,At %d In (%s),ASoc: Registered codec name =%s\n",__LINE__, __FUNCTION__,codec->name);
 	return 0;
 
 fail_codec_name:
 	mutex_lock(&client_mutex);
 	list_del(&codec->list);
 	mutex_unlock(&client_mutex);
+	//printk(KERN_ERR "yht--,At %d In (%s),in fail_codec_name\n",__LINE__, __FUNCTION__);
 
 	kfree(codec->name);
 fail_codec:
 	kfree(codec);
+	//printk(KERN_ERR "yht--,At %d In (%s),in fail_codec, ret =%d\n",__LINE__, __FUNCTION__,ret);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(snd_soc_register_codec);

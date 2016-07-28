@@ -50,6 +50,8 @@ int msm_isp_release_axi_stream(struct vfe_device *vfe_dev, void *arg);
 int msm_isp_update_axi_stream(struct vfe_device *vfe_dev, void *arg);
 void msm_isp_axi_cfg_update(struct vfe_device *vfe_dev,
 	enum msm_vfe_input_src frame_src);
+void msm_isp_axi_cfg_update_pending(struct vfe_device *vfe_dev,
+	enum msm_vfe_input_src frame_src);
 int msm_isp_axi_halt(struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_halt_cmd *halt_cmd);
 int msm_isp_axi_reset(struct vfe_device *vfe_dev,

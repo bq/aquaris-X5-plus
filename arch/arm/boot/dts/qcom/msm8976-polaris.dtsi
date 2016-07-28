@@ -84,7 +84,7 @@
 		reg = <0x38>;
 		interrupt-parent = <&msm_gpio>;
 		interrupts = <65 0x2>;
-		vdd-supply = <&pm8950_l17>;
+		//vdd-supply = <&pm8950_l17>;
 		vcc_i2c-supply = <&pm8950_l6>;
 		/* pins used by touchscreen */
 		pinctrl-names = "pmx_ts_active",

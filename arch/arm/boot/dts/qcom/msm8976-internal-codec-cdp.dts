@@ -102,8 +102,8 @@
 			"msm-dai-q6-dev.241", "msm-dai-q6-dev.240",
 			"msm-dai-q6-dev.32771", "msm-dai-q6-dev.32772",
 			"msm-dai-q6-dev.32773", "msm-dai-q6-dev.32770";
-		asoc-codec = <&stub_codec>, <&pm8950_cajon_dig>;
-		asoc-codec-names = "msm-stub-codec.1", "cajon_codec";
+		asoc-codec = <&stub_codec>;//, <&pm8950_cajon_dig>;
+		asoc-codec-names = "msm-stub-codec.1";//, "cajon_codec";
 		asoc-wsa-codec-names = "wsa881x-i2c-codec.8-000f";
 		asoc-wsa-codec-prefixes = "SpkrMono";
 
@@ -192,11 +192,11 @@
 &slim_msm{
 	status = "disabled";
 };
-
+/*
 &pm8950_cajon_dig {
 	status = "ok";
 };
 
 &pm8950_cajon_analog {
 	status = "ok";
-};
+};*/

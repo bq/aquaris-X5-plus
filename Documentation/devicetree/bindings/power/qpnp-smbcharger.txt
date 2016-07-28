@@ -237,6 +237,7 @@ Optional Properties:
 				this property will not adjust the AICL deglitch time
 				dynamically for handling the battery over-voltage
 				oscillations when the charger is headroom limited.
+- qcom,only-allow-5v:		Only support 5V charging.
 - qcom,aicl-rerun-period-s	If force-aicl-rerun is on, this property dictates
 				how often aicl is reran in seconds. Possible values
 				are

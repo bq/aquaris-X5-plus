@@ -189,6 +189,14 @@ module_param(tx_unmute_delay, int,
 		S_IRUGO | S_IWUSR | S_IWGRP);
 MODULE_PARM_DESC(tx_unmute_delay, "delay to unmute the tx path");
 
+#if defined(CONFIG_SND_SOC_TPA6130A2)
+static int external_hph_control = 0;
+//extern struct msm8952_asoc_mach_data *pdata_hph_pa;
+extern void enable_tpa6130a2(void);
+extern void disable_tpa6130a2(void);
+extern int tpa6130a2_stereo_enable(struct snd_soc_codec *codec, int enable);
+#endif
+
 static struct afe_param_slimbus_slave_port_cfg tasha_slimbus_slave_port_cfg = {
 	.minor_version = 1,
 	.slimbus_dev_id = AFE_SLIMBUS_DEVICE_1,
@@ -756,6 +764,15 @@ struct tasha_priv {
 	struct delayed_work power_gate_work;
 	struct mutex power_lock;
 	struct mutex sido_lock;
+
+#ifdef GOHAN_FM_POP_CC_BLACK
+	struct delayed_work hph_wt_dwork;
+#endif
+#ifdef GOHAN_FM_POP_CANCEL
+	struct delayed_work hph_pa_dwork;
+	struct list_head hph_list;
+	struct mutex hph_lock;
+#endif
 
 	/* mbhc module */
 	struct wcd_mbhc mbhc;
@@ -1437,8 +1454,15 @@ static int tasha_mbhc_request_micbias(struct snd_soc_codec *codec,
 	 * If micbias is requested, make sure that there
 	 * is vote to enable mclk
 	 */
-	if (req == MICB_ENABLE)
-		tasha_cdc_mclk_enable(codec, true, false);
+	if (req == MICB_ENABLE) {
+		if (micb_num == MIC_BIAS_2) {
+			if (!codec->mclk_enabled) {
+				tasha_cdc_mclk_enable(codec, true, false);
+				codec->mclk_enabled = 1;
+			}
+		} else
+			tasha_cdc_mclk_enable(codec, true, false);
+	}
 
 	ret = tasha_micbias_control(codec, micb_num, req, false);
 
@@ -1446,8 +1470,15 @@ static int tasha_mbhc_request_micbias(struct snd_soc_codec *codec,
 	 * Release vote for mclk while requesting for
 	 * micbias disable
 	 */
-	if (req == MICB_DISABLE)
-		tasha_cdc_mclk_enable(codec, false, false);
+	if (req == MICB_DISABLE) {
+		if (micb_num == MIC_BIAS_2) {
+			if (codec->mclk_enabled) {
+				tasha_cdc_mclk_enable(codec, false, false);
+				codec->mclk_enabled = 0;
+			}
+		} else
+			tasha_cdc_mclk_enable(codec, false, false);
+	}
 
 	return ret;
 }
@@ -3757,6 +3788,116 @@ static int tasha_codec_enable_hphr_pa(struct snd_soc_dapm_widget *w,
 	return ret;
 }
 
+#ifdef GOHAN_FM_POP_CANCEL
+atomic_t fm_port_on;
+
+static const char * const tasha_fmon_text[] = {
+	"OFF", "ON"
+};
+static const struct soc_enum tasha_fmon_enum[] = {
+	SOC_ENUM_SINGLE_EXT(2, tasha_fmon_text),
+};
+
+static int tasha_fm_start_get(struct snd_kcontrol *kcontrol,
+		       struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = atomic_read(&fm_port_on);
+	return 0;
+}
+
+static int tasha_fm_start_put(struct snd_kcontrol *kcontrol,
+		       struct snd_ctl_elem_value *ucontrol)
+{
+#ifdef GOHAN_FM_POP_CC_BLACK
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+	unsigned int val;
+#endif
+
+	atomic_set(&fm_port_on, ucontrol->value.integer.value[0]);
+#ifdef GOHAN_FM_POP_CC_BLACK
+	if (ucontrol->value.integer.value[0]) {
+		mutex_lock(&tasha->hph_lock);
+		val = snd_soc_read(codec, WCD9335_ANA_HPH);
+		if ((val & 0xc0) == 0xc0) {
+			cancel_delayed_work_sync(&tasha->hph_wt_dwork);
+			pr_info("%s: enable hph mute\n", __func__);
+			snd_soc_update_bits(codec, WCD9335_CDC_RX1_RX_PATH_MIX_CTL,
+				0x10, 0x10);
+			snd_soc_update_bits(codec, WCD9335_CDC_RX2_RX_PATH_MIX_CTL,
+				0x10, 0x10);
+			schedule_delayed_work(&tasha->hph_wt_dwork,
+				msecs_to_jiffies(500));
+		}
+		mutex_unlock(&tasha->hph_lock);
+	}
+#endif
+	return 0;
+}
+
+static const struct snd_kcontrol_new tasha_fmon_controls[] = {
+	SOC_ENUM_EXT("FMRadio", tasha_fmon_enum[0],
+		tasha_fm_start_get, tasha_fm_start_put),
+};
+
+extern void dapm_seq_run_coalesced_gohan(struct snd_soc_dapm_context *dapm,
+				   struct list_head *list);
+
+#ifdef GOHAN_FM_POP_CC_BLACK
+static void tasha_codec_enable_hph_wt_work(struct work_struct *work)
+{
+	struct delayed_work *dwork = to_delayed_work(work);
+	struct tasha_priv *tasha = container_of(dwork,
+		struct tasha_priv, hph_wt_dwork);
+	struct snd_soc_codec *codec = tasha->codec;
+
+	pr_info("%s: disable hph mute\n", __func__);
+	mutex_lock(&tasha->hph_lock);
+	snd_soc_update_bits(codec, WCD9335_CDC_RX1_RX_PATH_MIX_CTL,
+			0x10, 0x0);
+	snd_soc_update_bits(codec, WCD9335_CDC_RX2_RX_PATH_MIX_CTL,
+			0x10, 0x0);
+	mutex_unlock(&tasha->hph_lock);
+}
+#endif
+
+static void tasha_codec_enable_hph_pa_work(struct work_struct *work)
+{
+	struct delayed_work *dwork = to_delayed_work(work);
+	struct tasha_priv *tasha = container_of(dwork,
+		struct tasha_priv, hph_pa_dwork);
+	struct snd_soc_codec *codec = tasha->codec;
+
+	pr_info("%s: enter\n", __func__);
+	mutex_lock(&tasha->hph_lock);
+	dapm_seq_run_coalesced_gohan(&codec->dapm, &tasha->hph_list);
+	mutex_unlock(&tasha->hph_lock);
+}
+
+void tasha_codec_enable_hph_pa_gohan(struct snd_soc_dapm_widget *w,
+			struct list_head *list, int enable)
+{
+	struct snd_soc_codec *codec = w->codec;
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+	struct snd_soc_dapm_widget *_w, *t;
+
+	pr_info("%s: power=%d, enable=%d\n", __func__, w->power, enable);
+	if (enable) {
+		mutex_lock(&tasha->hph_lock);
+		INIT_LIST_HEAD(&tasha->hph_list);
+		list_for_each_entry_safe(_w, t, list, power_list)
+			list_move(&_w->power_list, &tasha->hph_list);
+		mutex_unlock(&tasha->hph_lock);
+		schedule_delayed_work(&tasha->hph_pa_dwork,
+				msecs_to_jiffies(180)); /* 200ms at most */
+	} else {
+		cancel_delayed_work_sync(&tasha->hph_pa_dwork);
+	}
+}
+EXPORT_SYMBOL_GPL(tasha_codec_enable_hph_pa_gohan);
+
+#endif /* GOHAN_FM_POP_CANCEL */
+
 static int tasha_codec_enable_hphl_pa(struct snd_soc_dapm_widget *w,
 				      struct snd_kcontrol *kcontrol,
 				      int event)
@@ -3792,6 +3933,9 @@ static int tasha_codec_enable_hphl_pa(struct snd_soc_dapm_widget *w,
 					    WCD9335_CDC_RX1_RX_PATH_MIX_CTL,
 					    0x10, 0x00);
 		tasha_codec_override(codec, hph_mode, event);
+#if defined(CONFIG_SND_SOC_TPA6130A2)
+		enable_tpa6130a2();
+#endif
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
 		blocking_notifier_call_chain(&tasha->notifier,
@@ -3806,6 +3950,9 @@ static int tasha_codec_enable_hphl_pa(struct snd_soc_dapm_widget *w,
 		 */
 		usleep_range(5000, 5500);
 		tasha_codec_override(codec, hph_mode, event);
+#if defined(CONFIG_SND_SOC_TPA6130A2)
+		disable_tpa6130a2();
+#endif
 		blocking_notifier_call_chain(&tasha->notifier,
 					WCD_EVENT_POST_HPHL_PA_OFF,
 					&tasha->mbhc);
@@ -4137,6 +4284,61 @@ static int tasha_codec_hphr_dac_event(struct snd_soc_dapm_widget *w,
 	return ret;
 }
 
+#if 0
+static int ohms_ranges[][3] = {
+	{0, 36, -3},
+	{37, 69, -1},
+	{70, 102, 1},
+	{103, 135, 2},
+	{136, 168, 3},
+	{169, 201, 4},
+	{202, 234, 5},
+	{235, 267, 5},
+	{268, 300, 5},
+	{301, 9999, 5}
+};
+
+static void tasha_codec_gain_ctrl_gohan(struct snd_soc_codec *codec,
+			uint32_t imped, int set_gain)
+{
+	struct tasha_priv *priv = snd_soc_codec_get_drvdata(codec);
+	struct wcd_mbhc *mbhc = &priv->mbhc;
+	int ranges = ARRAY_SIZE(ohms_ranges);
+	uint32_t zl = mbhc->zl;
+	uint32_t zr = mbhc->zr;
+	unsigned short val;
+	int gain;
+	int i, rc;
+
+	pr_debug("%s: zl=%u, zr=%u\n", __func__, zl, zr);
+
+	if (set_gain) {
+		for (i = 0; i < ranges; i++) {
+			if (zl >= ohms_ranges[i][0] && zl <= ohms_ranges[i][1]) {
+				gain = ohms_ranges[i][2];
+				break;
+			}
+		}
+		if (i < ranges) {
+			val = gain & 0xffff;
+			pr_info("%s: gain=%d, val=0x%x\n",
+				__func__, gain, val);
+			rc = snd_soc_update_bits_locked(codec,
+				WCD9335_CDC_RX1_RX_VOL_MIX_CTL, 0xffff, val);
+			if (rc < 0)
+				pr_err("%s: update rx1 vol failed !\n", __func__);
+
+			rc = snd_soc_update_bits_locked(codec,
+				WCD9335_CDC_RX2_RX_VOL_MIX_CTL, 0xffff, val);
+			if (rc < 0)
+				pr_err("%s: update rx2 vol failed !\n", __func__);
+		} else {
+			pr_warn("%s: gain not found\n", __func__);
+		}
+	}
+}
+#endif
+
 static int tasha_codec_hphl_dac_event(struct snd_soc_dapm_widget *w,
 				      struct snd_kcontrol *kcontrol,
 				      int event)
@@ -4179,6 +4381,7 @@ static int tasha_codec_hphl_dac_event(struct snd_soc_dapm_widget *w,
 		if (tasha->anc_func)
 			snd_soc_update_bits(codec,
 				WCD9335_CDC_RX1_RX_PATH_CFG0, 0x10, 0x10);
+		//tasha_codec_gain_ctrl_gohan(codec, ret, 1);
 
 		break;
 	case SND_SOC_DAPM_POST_PMU:
@@ -7890,6 +8093,29 @@ static int tasha_int_dem_inp_mux_put(struct snd_kcontrol *kcontrol,
 	return snd_soc_dapm_put_enum_double(kcontrol, ucontrol);
 }
 
+#if defined(CONFIG_SND_SOC_TPA6130A2)
+static int get_external_hph_pa(struct snd_kcontrol *kcontrol,
+		       struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = external_hph_control;
+	return 0;
+}
+
+static int set_external_hph_pa(struct snd_kcontrol *kcontrol,
+		       struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	int ret =0;
+
+	if (external_hph_control == ucontrol->value.integer.value[0])
+		return 0;
+
+	external_hph_control = ucontrol->value.integer.value[0];
+
+	ret = tpa6130a2_stereo_enable(codec, external_hph_control);
+	return 1;
+}
+#endif
 static int tasha_ear_pa_gain_get(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
@@ -8206,6 +8432,15 @@ static int tasha_codec_aif4_mixer_switch_put(struct snd_kcontrol *kcontrol,
 	return 1;
 }
 
+#if defined(CONFIG_SND_SOC_TPA6130A2)
+static const char * const msm8952_external_hph_pa_text[] = {
+		"OFF", "ON"};
+
+static const struct soc_enum msm8952_external_hph_pa_enum[] = {
+		SOC_ENUM_SINGLE_EXT(2, msm8952_external_hph_pa_text),
+};
+#endif
+
 static const char * const tasha_ear_pa_gain_text[] = {
 	"G_6_DB", "G_4P5_DB", "G_3_DB", "G_1P5_DB",
 	"G_0_DB", "G_M2P5_DB", "UNDEFINED", "G_M12_DB"
@@ -8244,6 +8479,10 @@ static const struct snd_kcontrol_new tasha_analog_gain_controls[] = {
 			analog_gain),
 	SOC_SINGLE_TLV("ADC6 Volume", WCD9335_ANA_AMIC6, 0, 20, 0,
 			analog_gain),
+#if defined(CONFIG_SND_SOC_TPA6130A2)
+	SOC_ENUM_EXT("Headphone PA Open", msm8952_external_hph_pa_enum[0],
+		get_external_hph_pa, set_external_hph_pa),
+#endif
 };
 
 static const char * const spl_src0_mux_text[] = {
@@ -12320,6 +12559,10 @@ static int tasha_codec_probe(struct snd_soc_codec *codec)
 	snd_soc_add_codec_controls(codec,
 			tasha_analog_gain_controls,
 			ARRAY_SIZE(tasha_analog_gain_controls));
+#ifdef GOHAN_FM_POP_CANCEL
+	snd_soc_add_codec_controls(codec, tasha_fmon_controls,
+			ARRAY_SIZE(tasha_fmon_controls));
+#endif
 	control->num_rx_port = TASHA_RX_MAX;
 	control->rx_chs = ptr;
 	memcpy(control->rx_chs, tasha_rx_chs, sizeof(tasha_rx_chs));
@@ -12820,6 +13063,14 @@ static int tasha_probe(struct platform_device *pdev)
 	mutex_init(&tasha->swr_write_lock);
 	mutex_init(&tasha->swr_clk_lock);
 
+#ifdef GOHAN_FM_POP_CC_BLACK
+	INIT_DELAYED_WORK(&tasha->hph_wt_dwork, tasha_codec_enable_hph_wt_work);
+#endif
+#ifdef GOHAN_FM_POP_CANCEL
+	INIT_DELAYED_WORK(&tasha->hph_pa_dwork, tasha_codec_enable_hph_pa_work);
+	INIT_LIST_HEAD(&tasha->hph_list);
+	mutex_init(&tasha->hph_lock);
+#endif
 	cdc_pwr = devm_kzalloc(&pdev->dev, sizeof(struct wcd9xxx_power_region),
 			       GFP_KERNEL);
 	if (!cdc_pwr) {
@@ -12899,6 +13150,13 @@ static int tasha_remove(struct platform_device *pdev)
 
 	tasha = platform_get_drvdata(pdev);
 
+#ifdef GOHAN_FM_POP_CC_BLACK
+	cancel_delayed_work_sync(&tasha->hph_wt_dwork);
+#endif
+#ifdef GOHAN_FM_POP_CANCEL
+	cancel_delayed_work_sync(&tasha->hph_pa_dwork);
+	mutex_destroy(&tasha->hph_lock);
+#endif
 	clk_put(tasha->wcd_ext_clk);
 	devm_kfree(&pdev->dev, tasha);
 	snd_soc_unregister_codec(&pdev->dev);
