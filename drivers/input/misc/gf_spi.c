@@ -650,8 +650,10 @@ gf_compat_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 static irqreturn_t gf_irq(int irq, void *handle)
 {
 #if defined(GF_NETLINK_ENABLE)
+	struct gf_dev *gf_dev = &gf;
     char temp = GF_NET_EVENT_IRQ;
-    //printk("gf_irq \n");
+	if (gf_dev->fb_black == 1)
+		wake_lock_timeout(&gf_dev->gf_wakelock, HZ * 3);
     sendnlmsg(&temp);
 #elif defined (GF_FASYNC)
     struct gf_dev *gf_dev = &gf;
@@ -933,6 +935,7 @@ static int gf_probe(struct platform_device *pdev)
 			gf_disable_irq(gf_dev);
 		}
 	}
+	wake_lock_init(&gf_dev->gf_wakelock, WAKE_LOCK_SUSPEND, "gf-wakelock");
 
 	return status;
 
@@ -988,6 +991,7 @@ static int gf_remove(struct platform_device *pdev)
 
     fb_unregister_client(&gf_dev->notifier); 
     mutex_unlock(&device_list_lock);
+	wake_lock_destroy(&gf_dev->gf_wakelock);
 
     FUNC_EXIT();
     return 0;

@@ -3811,15 +3811,13 @@ static int tasha_fm_start_put(struct snd_kcontrol *kcontrol,
 #ifdef GOHAN_FM_POP_CC_BLACK
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
 	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
-	unsigned int val;
 #endif
 
 	atomic_set(&fm_port_on, ucontrol->value.integer.value[0]);
 #ifdef GOHAN_FM_POP_CC_BLACK
 	if (ucontrol->value.integer.value[0]) {
 		mutex_lock(&tasha->hph_lock);
-		val = snd_soc_read(codec, WCD9335_ANA_HPH);
-		if ((val & 0xc0) == 0xc0) {
+		if (tasha_mbhc_hph_pa_on_status(codec)) {
 			cancel_delayed_work_sync(&tasha->hph_wt_dwork);
 			pr_info("%s: enable hph mute\n", __func__);
 			snd_soc_update_bits(codec, WCD9335_CDC_RX1_RX_PATH_MIX_CTL,

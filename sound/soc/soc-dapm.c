@@ -1410,10 +1410,10 @@ static void dapm_seq_run(struct snd_soc_dapm_context *dapm,
 		    w->dapm != cur_dapm || w->subseq != cur_subseq) {
 			if (cur_dapm && !list_empty(&pending)) {
 				#ifdef GOHAN_FM_POP_CANCEL
-				if (atomic_read(&fm_port_on) && found != -1) {
+				if (atomic_read(&fm_port_on) && found == 0) {
 					list_for_each_entry(v, &pending, power_list) {
-						if (!strncmp(v->name, "HPHL PA", 7) ||
-							!strncmp(v->name, "HPHR PA", 7)) {
+						if (!strcmp(v->name, "HPHL PA") ||
+							!strcmp(v->name, "HPHR PA")) {
 							found = 1;
 							break;
 						}
@@ -1421,11 +1421,9 @@ static void dapm_seq_run(struct snd_soc_dapm_context *dapm,
 
 					if (found == 1 && power_up) {
 						tasha_codec_enable_hph_pa_gohan(v, &pending, 1);
-						found = -1;
 					} else if (found == 1) {
 						tasha_codec_enable_hph_pa_gohan(v, &pending, 0);
 						dapm_seq_run_coalesced(cur_dapm, &pending);
-						found = -1;
 					} else
 						dapm_seq_run_coalesced(cur_dapm, &pending);
 				} else {
@@ -1500,10 +1498,10 @@ static void dapm_seq_run(struct snd_soc_dapm_context *dapm,
 
 	if (cur_dapm && !list_empty(&pending)) {
 		#ifdef GOHAN_FM_POP_CANCEL
-		if (atomic_read(&fm_port_on) && found != -1) {
+		if (atomic_read(&fm_port_on) && found == 0) {
 			list_for_each_entry(v, &pending, power_list) {
-				if (!strncmp(v->name, "HPHL PA", 7) ||
-					!strncmp(v->name, "HPHR PA", 7)) {
+				if (!strcmp(v->name, "HPHL PA") ||
+					!strcmp(v->name, "HPHR PA")) {
 					found = 1;
 					break;
 				}
@@ -1511,11 +1509,9 @@ static void dapm_seq_run(struct snd_soc_dapm_context *dapm,
 
 			if (found == 1 && power_up) {
 				tasha_codec_enable_hph_pa_gohan(v, &pending, 1);
-				found = -1;
 			} else if (found == 1) {
 				tasha_codec_enable_hph_pa_gohan(v, &pending, 0);
 				dapm_seq_run_coalesced(cur_dapm, &pending);
-				found = -1;
 			} else
 				dapm_seq_run_coalesced(cur_dapm, &pending);
 		} else {

@@ -376,6 +376,8 @@ enum battchg_enable_voters {
 	NUM_BATTCHG_EN_VOTERS,
 };
 
+static int battery_max_current = -1;
+
 static int smbchg_debug_mask;
 module_param_named(
 	debug_mask, smbchg_debug_mask, int, S_IRUSR | S_IWUSR
@@ -404,7 +406,7 @@ module_param_named(
 	int, S_IRUSR | S_IWUSR
 );
 
-static int smbchg_default_dcp_icl_ma = 1800;
+static int smbchg_default_dcp_icl_ma = 1600;
 module_param_named(
 	default_dcp_icl_ma, smbchg_default_dcp_icl_ma,
 	int, S_IRUSR | S_IWUSR
@@ -1465,6 +1467,11 @@ static int smbchg_set_high_usb_chg_current(struct smbchg_chip *chip,
 {
 	int i, rc;
 	u8 usb_cur_val;
+
+	if (battery_max_current > 0 && current_ma > battery_max_current) {
+		pr_err("smbchg_set_high_usb_chg_current current_ma was %d, set to %d \n", current_ma, battery_max_current);
+		current_ma = battery_max_current;
+	}
 
 	if (current_ma == CURRENT_100_MA) {
 		rc = smbchg_sec_masked_write(chip,
@@ -5470,6 +5477,38 @@ static ssize_t smb_battery_test_status_store(struct device *dev,
 		goto exit;
 	}
 	BatteryTestStatus_enable = 1;
+	
+exit:
+	return retval;
+}
+
+static ssize_t smb_battery_max_current_show(struct device *dev,
+					struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", battery_max_current);
+}
+
+static ssize_t smb_battery_max_current_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	int retval;
+	unsigned int input;
+	struct smbchg_chip *chip = dev_get_drvdata(dev);
+
+	if (sscanf(buf, "%d", &input) < 0) {
+		retval = -EINVAL;
+		battery_max_current = -1;
+		goto exit;
+	}
+
+	battery_max_current = input;
+
+	if (battery_max_current > chip->dc_target_current_ma)
+		battery_max_current = chip->dc_target_current_ma;
+
+	if (battery_max_current > 0 ){
+		smbchg_set_high_usb_chg_current(chip, battery_max_current);
+	}
 exit:
 	return retval;
 }
@@ -5478,6 +5517,9 @@ static struct device_attribute attrs[] = {
 	__ATTR(BatteryTestStatus, S_IRUGO | S_IWUSR | S_IWGRP,
 			smb_battery_test_status_show,
 			smb_battery_test_status_store),
+	__ATTR(BatteryMaxCurrent, S_IRUGO | S_IWUSR | S_IWGRP,
+			smb_battery_max_current_show,
+			smb_battery_max_current_store),
 };
 
 bool is_oldtest = false;
@@ -7889,6 +7931,15 @@ static int smbchg_probe(struct spmi_device *spmi)
 				__func__);
         sysfs_remove_file(&chip->dev->kobj,&attrs[0].attr);
 	}
+
+	rc = sysfs_create_file(&chip->dev->kobj,&attrs[1].attr);
+	if (rc < 0) {
+		dev_err(chip->dev,
+				"%s: Failed to create sysfs attributes\n",
+				__func__);
+        sysfs_remove_file(&chip->dev->kobj,&attrs[1].attr);
+	}
+
 	dev_info(chip->dev,
 		"SMBCHG successfully probe Charger version=%s Revision DIG:%d.%d ANA:%d.%d batt=%d dc=%d usb=%d\n",
 			version_str[chip->schg_version],

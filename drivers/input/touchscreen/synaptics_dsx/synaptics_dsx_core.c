@@ -66,7 +66,10 @@ static struct proc_dir_entry *g_lct_wake_enable_proc = NULL;
 struct device *syna_dev;
 
 #endif
-#define WAKEUP_GESTURE true
+#define WAKEUP_GESTURE false
+
+#define X_MAX_THRESHOLD 1073
+#define X_MIN_THRESHOLD 7
 
 #define NO_0D_WHILE_2D
 #define REPORT_2D_Z
@@ -940,6 +943,12 @@ static int synaptics_rmi4_f11_abs_report(struct synaptics_rmi4_data *rmi4_data,
 			if (rmi4_data->hw_if->board_data->y_flip)
 				y = rmi4_data->sensor_max_y - y;
 
+			if (x > X_MAX_THRESHOLD)
+				x = X_MAX_THRESHOLD;
+
+			if (x < X_MIN_THRESHOLD)
+				x = X_MIN_THRESHOLD;
+
 			input_report_key(rmi4_data->input_dev,
 					BTN_TOUCH, 1);
 			input_report_key(rmi4_data->input_dev,
@@ -1138,6 +1147,12 @@ static int synaptics_rmi4_f12_abs_report(struct synaptics_rmi4_data *rmi4_data,
 			x = rmi4_data->sensor_max_x - x;
 		if (rmi4_data->hw_if->board_data->y_flip)
 			y = rmi4_data->sensor_max_y - y;
+
+		if (x > X_MAX_THRESHOLD)
+			x = X_MAX_THRESHOLD;
+
+		if (x < X_MIN_THRESHOLD)
+			x = X_MIN_THRESHOLD;
 
 		switch (finger_status) {
 		case F12_FINGER_STATUS:

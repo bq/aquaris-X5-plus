@@ -807,6 +807,13 @@ static void wcd_mbhc_find_plug_and_report(struct wcd_mbhc *mbhc,
 		goto exit;
 	}
 
+	if (mbhc->current_plug == MBHC_PLUG_TYPE_HEADPHONE &&
+		plug_type == MBHC_PLUG_TYPE_HEADSET) {
+		pr_warn("%s: current plug is headphone, ignore headset\n",
+			__func__);
+		goto exit;
+	}
+
 	if (plug_type == MBHC_PLUG_TYPE_HEADPHONE) {
 		/*
 		 * Nothing was reported previously
@@ -1115,6 +1122,7 @@ exit:
 	return spl_hs;
 }
 
+static DECLARE_COMPLETION(mbhc_pressed);
 static void wcd_correct_swch_plug(struct work_struct *work)
 {
 	struct wcd_mbhc *mbhc;
@@ -1149,7 +1157,10 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 
 	if (mbhc->current_plug == MBHC_PLUG_TYPE_GND_MIC_SWAP) {
 		mbhc->current_plug = MBHC_PLUG_TYPE_NONE;
-		goto correct_plug_type;
+		pr_debug("%s: euro detected, treat as headphone\n",
+				 __func__);
+		plug_type = MBHC_PLUG_TYPE_HEADPHONE;
+		goto report;
 	}
 
 	/* Enable HW FSM */
@@ -1181,6 +1192,7 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 
 	pr_debug("%s: Valid plug found, plug type is %d\n",
 			 __func__, plug_type);
+
 	if ((plug_type == MBHC_PLUG_TYPE_HEADSET ||
 	     plug_type == MBHC_PLUG_TYPE_HEADPHONE) &&
 	    (!wcd_swch_level_remove(mbhc))) {
@@ -1189,7 +1201,22 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 		WCD_MBHC_RSC_UNLOCK(mbhc);
 	}
 
-correct_plug_type:
+	if (plug_type == MBHC_PLUG_TYPE_HIGH_HPH) {
+		reinit_completion(&mbhc_pressed);
+		rc = wait_for_completion_timeout(&mbhc_pressed,
+				msecs_to_jiffies(600));
+		if (rc > 0) {
+			pr_debug("%s: it is headset without mic\n", __func__);
+			plug_type = MBHC_PLUG_TYPE_HEADPHONE;
+		} else if (rc == 0) {
+			pr_debug("%s: maybe it is headset\n", __func__);
+			plug_type = MBHC_PLUG_TYPE_HEADSET;
+
+		}
+		WCD_MBHC_RSC_LOCK(mbhc);
+		wcd_mbhc_find_plug_and_report(mbhc, plug_type);
+		WCD_MBHC_RSC_UNLOCK(mbhc);
+	}
 
 	timeout = jiffies + msecs_to_jiffies(HS_DETECT_PLUG_TIME_MS);
 	while (!time_after(jiffies, timeout)) {
@@ -1906,6 +1933,8 @@ static irqreturn_t wcd_mbhc_btn_press_handler(int irq, void *data)
 	if (mbhc->current_plug != MBHC_PLUG_TYPE_HEADSET) {
 		pr_debug("%s: Plug isn't headset, ignore button press\n",
 				__func__);
+		complete(&mbhc_pressed);
+		mbhc->btn_press_intr = false;
 		goto done;
 	}
 	mask = wcd_mbhc_get_button_mask(mbhc);
