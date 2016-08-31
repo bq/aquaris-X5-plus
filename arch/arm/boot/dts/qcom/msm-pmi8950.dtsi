@@ -613,7 +613,7 @@
 			interrupts = <0x3 0xc0 0x0>,
 					<0x3 0xc0 0x1>;
 			interrupt-names = "sc-irq", "play-irq";
-			qcom,play-mode = "direct";
+			qcom,play-mode = "buffer";
 			qcom,wave-play-rate-us = <4255>;
 			qcom,actuator-type = "lra";
 			qcom,wave-shape = "sine";
