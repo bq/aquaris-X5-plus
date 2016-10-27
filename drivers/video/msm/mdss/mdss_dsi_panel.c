@@ -29,6 +29,12 @@
 #define MIN_REFRESH_RATE 48
 #define DEFAULT_MDP_TRANSFER_TIME 14000
 
+//add for compatible with the 2 FW of truly start
+#define PANLE_NAME_R63350 "truly R63350 1080p video mode dsi panel"
+#define PANLE_NAME_NT35695H "truly NT35695 1080p video mode dsi panel"
+int panel_id_flag;
+//add for compatible with the 2 FW of truly end
+
 DEFINE_LED_TRIGGER(bl_led_trigger);
 
 #define CEIL(x, y)	(((x) + ((y)-1)) / (y))
@@ -2201,6 +2207,17 @@ int mdss_dsi_panel_init(struct device_node *node,
 		pr_info("%s: Panel Name = %s\n", __func__, panel_name);
 		strlcpy(&pinfo->panel_name[0], panel_name, MDSS_MAX_PANEL_LEN);
 	}
+
+//add for compatible with the 2 FW of truly start
+        if (0 == strcmp(panel_name,PANLE_NAME_R63350)) {
+            panel_id_flag = 1;
+        }else if(0 == strcmp(panel_name,PANLE_NAME_NT35695H)){
+            panel_id_flag = 2;
+        }else{
+            panel_id_flag = 0;
+        }
+//add for compatible with the 2 FW of truly end
+
 	rc = mdss_panel_parse_dt(node, ctrl_pdata);
 	if (rc) {
 		pr_err("%s:%d panel dt parse failed\n", __func__, __LINE__);

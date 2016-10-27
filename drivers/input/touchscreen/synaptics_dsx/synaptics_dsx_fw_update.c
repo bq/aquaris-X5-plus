@@ -43,7 +43,12 @@
 #include "synaptics_dsx_core.h"
 #include "../lct_tp_fm_info.h"
 
-#define FW_IMAGE_NAME_TRULY "synaptics_firmware_truly.img"
+//changed for compatible with the 2 FW of truly ,AUO and LG
+#define FW_IMAGE_NAME_TRULY_AUO "synaptics_firmware_truly_auo.img"
+#define FW_IMAGE_NAME_TRULY_LG "synaptics_firmware_truly_lg.img"
+extern int panel_id_flag;
+//changed end
+
 #define FW_IMAGE_NAME_BOOYI "synaptics_firmware_booyi.img"
 /*
 #define DO_STARTUP_FW_UPDATE
@@ -3480,12 +3485,17 @@ static int fwu_start_reflash(void)
 	mutex_lock(&rmi4_data->rmi4_exp_init_mutex);
 
 	pr_notice("Firmware update process start...\n");
-
 	if (fwu->image == NULL) {
 		if (!strncmp(fwu->read_config_buf, "9360-0001", 9)) {
+			if(1 == panel_id_flag){
 			retval = secure_memcpy(fwu->image_name, MAX_IMAGE_NAME_LEN,
-				FW_IMAGE_NAME_TRULY, sizeof(FW_IMAGE_NAME_TRULY),
-				sizeof(FW_IMAGE_NAME_TRULY));
+				FW_IMAGE_NAME_TRULY_AUO, sizeof(FW_IMAGE_NAME_TRULY_AUO),
+				sizeof(FW_IMAGE_NAME_TRULY_AUO));
+			}else if(2 == panel_id_flag){
+			retval = secure_memcpy(fwu->image_name, MAX_IMAGE_NAME_LEN,
+				FW_IMAGE_NAME_TRULY_LG, sizeof(FW_IMAGE_NAME_TRULY_LG),
+				sizeof(FW_IMAGE_NAME_TRULY_LG));
+			}
 			lct_tp_info(rmi4_data, "Truly");
 			pr_warn("Module name: Truly\n");
 		} else if (!strncmp(fwu->read_config_buf, "9360-0002", 9)) {
@@ -3499,9 +3509,15 @@ static int fwu_start_reflash(void)
 			lct_tp_info(rmi4_data, "Booyi");
 			pr_warn("Module name: Booyi\n");
 		} else if (fwu->config_id[0] == 0x30) {
+		   	if(1 == panel_id_flag){
 			retval = secure_memcpy(fwu->image_name, MAX_IMAGE_NAME_LEN,
-				FW_IMAGE_NAME_TRULY, sizeof(FW_IMAGE_NAME_TRULY),
-				sizeof(FW_IMAGE_NAME_TRULY));
+				FW_IMAGE_NAME_TRULY_AUO, sizeof(FW_IMAGE_NAME_TRULY_AUO),
+				sizeof(FW_IMAGE_NAME_TRULY_AUO));
+			}else if(2 == panel_id_flag){
+			retval = secure_memcpy(fwu->image_name, MAX_IMAGE_NAME_LEN,
+				FW_IMAGE_NAME_TRULY_LG, sizeof(FW_IMAGE_NAME_TRULY_LG),
+				sizeof(FW_IMAGE_NAME_TRULY_LG));
+			}
 			lct_tp_info(rmi4_data, "Truly");
 			pr_warn("Module name: truly\n");
 		} else if (fwu->config_id[0] == 0x42) {
