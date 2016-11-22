@@ -5574,7 +5574,7 @@ void runin_work(struct smbchg_chip *chip, int batt_capacity)
 			dev_err(chip->dev,
 				"Couldn't disenable charge rc=%d\n", rc);
 	} else {
-		if (batt_capacity <= 50) {
+		if (batt_capacity <= 60) {
 		pr_debug("smbcharge_get_prop_batt_capacity <= 50\n");
 		rc = smbchg_usb_suspend(chip,false);
 		if (rc)
