@@ -971,6 +971,7 @@ static void mdss_dsi_debugfs_cleanup(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 		struct mdss_dsi_debugfs_info *dfs = ctrl->debugfs_info;
 		if (dfs && dfs->root)
 			debugfs_remove_recursive(dfs->root);
+		kfree(dfs);
 		pdata = pdata->next;
 	} while (pdata);
 	pr_debug("%s: Cleaned up mdss_dsi_debugfs_info\n", __func__);
@@ -1268,14 +1269,14 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 		goto end;
 	}
 
-	ret = mdss_dsi_set_clk_src(ctrl_pdata);
-	if (ret) {
-		pr_err("%s: failed to set clk src. rc=%d\n", __func__, ret);
+	if (mdss_panel_is_power_on(cur_power_state)) {
+		pr_debug("%s: dsi_on from panel low power state\n", __func__);
 		goto end;
 	}
 
-	if (mdss_panel_is_power_on(cur_power_state)) {
-		pr_debug("%s: dsi_on from panel low power state\n", __func__);
+	ret = mdss_dsi_set_clk_src(ctrl_pdata);
+	if (ret) {
+		pr_err("%s: failed to set clk src. rc=%d\n", __func__, ret);
 		goto end;
 	}
 
