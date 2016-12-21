@@ -43,7 +43,7 @@
 #include "synaptics_dsx.h"
 #include "synaptics_dsx_core.h"
 
-#define SYN_I2C_RETRY_TIMES 10
+#define SYN_I2C_RETRY_TIMES 2
 
 /*
 #define I2C_BURST_LIMIT 255

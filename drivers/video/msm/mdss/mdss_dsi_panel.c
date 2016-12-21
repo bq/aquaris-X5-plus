@@ -31,7 +31,7 @@
 
 //add for compatible with the 2 FW of truly start
 #define PANLE_NAME_R63350 "truly R63350 1080p video mode dsi panel"
-#define PANLE_NAME_NT35695H "truly NT35695 1080p video mode dsi panel"
+#define PANLE_NAME_NT35695H "truly NT35695 1080p command mode dsi panel"
 int panel_id_flag;
 //add for compatible with the 2 FW of truly end
 

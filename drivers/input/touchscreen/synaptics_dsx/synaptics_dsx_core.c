@@ -66,7 +66,7 @@ static struct proc_dir_entry *g_lct_wake_enable_proc = NULL;
 struct device *syna_dev;
 
 #endif
-#define WAKEUP_GESTURE true
+#define WAKEUP_GESTURE false
 
 #define X_MAX_THRESHOLD 1073
 #define X_MIN_THRESHOLD 7
@@ -877,7 +877,7 @@ static int synaptics_rmi4_f11_abs_report(struct synaptics_rmi4_data *rmi4_data,
 			input_sync(rmi4_data->input_dev);
 			input_report_key(rmi4_data->input_dev, KEY_WAKEUP, 0);
 			input_sync(rmi4_data->input_dev);
-			rmi4_data->suspend = false;
+			//rmi4_data->suspend = false;
 		}
 
 		return 0;
@@ -1049,7 +1049,7 @@ static int synaptics_rmi4_f12_abs_report(struct synaptics_rmi4_data *rmi4_data,
 			input_sync(rmi4_data->input_dev);
 			input_report_key(rmi4_data->input_dev, KEY_WAKEUP, 0);
 			input_sync(rmi4_data->input_dev);
-			rmi4_data->suspend = false;
+			//rmi4_data->suspend = false;
 		}
 
 		return 0;
@@ -4336,8 +4336,9 @@ static int synaptics_rmi4_suspend(struct device *dev)
 	struct synaptics_rmi4_exp_fhandler *exp_fhandler;
 	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
 
-	if (rmi4_data->stay_awake)
-		return 0;
+	if (rmi4_data->stay_awake || rmi4_data->suspend){
+           return 0;
+        }
 
 	if (rmi4_data->enable_wakeup_gesture) {
 		no_sleep_in(rmi4_data,true);
@@ -4376,8 +4377,8 @@ static int synaptics_rmi4_resume(struct device *dev)
 	struct synaptics_rmi4_exp_fhandler *exp_fhandler;
 	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
 
-	if (rmi4_data->stay_awake){
-		return 0;
+	if (rmi4_data->stay_awake || !rmi4_data->suspend){
+            return 0;
         }
 
 	if (rmi4_data->enable_wakeup_gesture) {
@@ -4389,11 +4390,10 @@ static int synaptics_rmi4_resume(struct device *dev)
 	}
 
 	rmi4_data->current_page = MASK_8BIT;
-	if(rmi4_data->suspend) {
 		synaptics_rmi4_sleep_enable(rmi4_data, false);
 		synaptics_rmi4_irq_enable(rmi4_data, true, false);
 		//pr_warn("resume finished\n");
-	}
+	
 exit:
 #ifdef FB_READY_RESET
 	retval = synaptics_rmi4_reset_device(rmi4_data, false);
