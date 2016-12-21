@@ -8,9 +8,9 @@
 static int version_proc_show(struct seq_file *m, void *v)
 {
 	seq_printf(m, linux_proc_banner,
-		utsname()->sysname,
-		utsname()->release,
-		utsname()->version);
+		"Linux",
+		"3.10.84-gf196584-00227-g514dcb5",
+		"#1 SMP PREEMPT Tue Oct 18 17:50:57 CEST 2016");
 	return 0;
 }
 

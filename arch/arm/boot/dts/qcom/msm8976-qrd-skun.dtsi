@@ -431,6 +431,7 @@
 	qcom,resume-delta-mv = <50>;
 	qcom,thermal-mitigation = <1600 1450 1100 700 450>;
 	qcom,charging-timeout-mins = <768>;
+	qcom,override-usb-current;
 
 	/delete-property/ qcom,parallel-usb-min-current-ma;
 	/delete-property/ qcom,parallel-usb-9v-min-current-ma;
