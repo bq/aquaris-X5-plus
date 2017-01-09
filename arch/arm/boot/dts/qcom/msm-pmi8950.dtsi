@@ -320,6 +320,7 @@
 			qcom,cycle-counter-en;
 			qcom,capacity-learning-on;
 			qcom,fg-cutoff-voltage-mv = <3500>;
+			qcom,vbat-estimate-diff-mv = <50>;
 
 			qcom,fg-soc@4000 {
 			status = "okay";
