@@ -1356,6 +1356,23 @@ static void dapm_seq_run_coalesced(struct snd_soc_dapm_context *dapm,
 	}
 }
 
+#ifdef GOHAN_FM_POP_CANCEL
+extern atomic_t fm_port_on;
+extern void tasha_codec_enable_hph_pa_gohan(struct snd_soc_dapm_widget *w,
+		struct list_head *list, int enable);
+void dapm_seq_run_coalesced_gohan(struct snd_soc_dapm_context *dapm,
+			struct list_head *list)
+{
+	if (unlikely(!mutex_trylock(&dapm->card->dapm_power_mutex))) {
+		pr_warn("%s: cannot get dapm power mutex\n", __func__);
+		return;
+	}
+	dapm_seq_run_coalesced(dapm, list);
+	mutex_unlock(&dapm->card->dapm_power_mutex);
+}
+EXPORT_SYMBOL_GPL(dapm_seq_run_coalesced_gohan);
+#endif
+
 /* Apply a DAPM power sequence.
  *
  * We walk over a pre-sorted list of widgets to apply power to.  In
@@ -1375,6 +1392,10 @@ static void dapm_seq_run(struct snd_soc_dapm_context *dapm,
 	struct snd_soc_dapm_context *cur_dapm = NULL;
 	int ret, i;
 	int *sort;
+#ifdef GOHAN_FM_POP_CANCEL
+	struct snd_soc_dapm_widget *v;
+	int found = 0;
+#endif
 
 	if (power_up)
 		sort = dapm_up_seq;
@@ -1387,8 +1408,31 @@ static void dapm_seq_run(struct snd_soc_dapm_context *dapm,
 		/* Do we need to apply any queued changes? */
 		if (sort[w->id] != cur_sort || w->reg != cur_reg ||
 		    w->dapm != cur_dapm || w->subseq != cur_subseq) {
-			if (cur_dapm && !list_empty(&pending))
+			if (cur_dapm && !list_empty(&pending)) {
+				#ifdef GOHAN_FM_POP_CANCEL
+				if (atomic_read(&fm_port_on) && found == 0) {
+					list_for_each_entry(v, &pending, power_list) {
+						if (!strcmp(v->name, "HPHL PA") ||
+							!strcmp(v->name, "HPHR PA")) {
+							found = 1;
+							break;
+						}
+					}
+
+					if (found == 1 && power_up) {
+						tasha_codec_enable_hph_pa_gohan(v, &pending, 1);
+					} else if (found == 1) {
+						tasha_codec_enable_hph_pa_gohan(v, &pending, 0);
+						dapm_seq_run_coalesced(cur_dapm, &pending);
+					} else
+						dapm_seq_run_coalesced(cur_dapm, &pending);
+				} else {
+					dapm_seq_run_coalesced(cur_dapm, &pending);
+				}
+				#else
 				dapm_seq_run_coalesced(cur_dapm, &pending);
+				#endif
+			}
 
 			if (cur_dapm && cur_dapm->seq_notifier) {
 				for (i = 0; i < ARRAY_SIZE(dapm_up_seq); i++)
@@ -1452,8 +1496,31 @@ static void dapm_seq_run(struct snd_soc_dapm_context *dapm,
 				"ASoC: Failed to apply widget power: %d\n", ret);
 	}
 
-	if (cur_dapm && !list_empty(&pending))
+	if (cur_dapm && !list_empty(&pending)) {
+		#ifdef GOHAN_FM_POP_CANCEL
+		if (atomic_read(&fm_port_on) && found == 0) {
+			list_for_each_entry(v, &pending, power_list) {
+				if (!strcmp(v->name, "HPHL PA") ||
+					!strcmp(v->name, "HPHR PA")) {
+					found = 1;
+					break;
+				}
+			}
+
+			if (found == 1 && power_up) {
+				tasha_codec_enable_hph_pa_gohan(v, &pending, 1);
+			} else if (found == 1) {
+				tasha_codec_enable_hph_pa_gohan(v, &pending, 0);
+				dapm_seq_run_coalesced(cur_dapm, &pending);
+			} else
+				dapm_seq_run_coalesced(cur_dapm, &pending);
+		} else {
+			dapm_seq_run_coalesced(cur_dapm, &pending);
+		}
+		#else
 		dapm_seq_run_coalesced(cur_dapm, &pending);
+		#endif
+	}
 
 	if (cur_dapm && cur_dapm->seq_notifier) {
 		for (i = 0; i < ARRAY_SIZE(dapm_up_seq); i++)

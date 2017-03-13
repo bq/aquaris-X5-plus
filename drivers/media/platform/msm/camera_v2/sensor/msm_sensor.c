@@ -1451,7 +1451,6 @@ static struct msm_camera_i2c_fn_t msm_sensor_qup_func_tbl = {
 	.i2c_write_table_sync = msm_camera_qup_i2c_write_table,
 	.i2c_write_table_sync_block = msm_camera_qup_i2c_write_table,
 };
-
 int32_t msm_sensor_init_default_params(struct msm_sensor_ctrl_t *s_ctrl)
 {
 	struct msm_camera_cci_client *cci_client = NULL;

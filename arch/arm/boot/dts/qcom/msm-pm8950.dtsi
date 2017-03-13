@@ -49,6 +49,10 @@
 				qcom,pon-type = <0>;
 				qcom,pull-up = <1>;
 				linux,code = <116>;
+                                qcom,support-reset = <1>;
+				qcom,s1-timer = <10256>;
+				qcom,s2-timer = <2000>;
+				qcom,s2-type = <7>;
 			};
 
 			qcom,pon_2 {
@@ -99,11 +103,11 @@
 				/* MPP4 - CASE_THERM config */
 				reg = <0xa300 0x100>;
 				qcom,pin-num = <4>;
-				qcom,mode = <4>; /* AIN input */
-				qcom,invert = <1>; /* Enable MPP */
-				qcom,ain-route = <3>; /* AMUX 8 */
+				qcom,mode = <1>; /* Dout */
+				qcom,invert = <0>; /* Enable MPP */
+				qcom,src-sel = <4>; /* DTEST1 */
+				qcom,vin-sel = <2>;
 				qcom,master-en = <1>;
-				qcom,src-sel = <0>; /* Function constant */
 			};
 		};
 
@@ -377,7 +381,7 @@
 		#size-cells = <1>;
 
 		pm8950_pwm: pwm@bc00 {
-			status = "disabled";
+			status = "okay";
 			compatible = "qcom,qpnp-pwm";
 			reg = <0xbc00 0x100>;
 			reg-names = "qpnp-lpg-channel-base";

@@ -1,0 +1,8 @@
+
+
+config SND_SOC_TFA98XX
+	bool "nxp tfa98xx driver"
+	default n
+	help
+	this is nxp tfa98xx driver
+	

@@ -850,18 +850,28 @@ config SENSORS_BMI058
 	 If you say yes here, you get support for Bosch Sensortec's
 	 sensor driver of BMI058.
 
-config SENSORS_MC3430
-	tristate "MC3430 acceleration sensor support"
-	depends on I2C
-	help
-	 Say Y here if you want to enable the MC3430 acceleration sensor
-	 driver.
-
 config SENSORS_ISL29044A
 	tristate "INTERSIL P/L sensor"
 	depends on I2C
 	help
 	 This option enables support for the INTERSIL ISL29044A P/L sensor.
+
+config HALL
+	tristate "HALL Switch"
+	help
+	 If you say yes here, you get support for hall switch control device
+
+config FP_SYNAPTICS
+	tristate "Synaptics Fingerprint sensor"
+	depends on SPI
+	help
+	 This option enables support for the Synaptics Fingerprint sensor.
+
+config FP_GOODIX
+	tristate "Goodix Fingerprint sensor"
+	depends on SPI
+	help
+	 This option enables support for the Goodix Fingerprint sensor.
 
 endif
 

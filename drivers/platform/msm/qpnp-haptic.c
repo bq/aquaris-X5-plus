@@ -999,6 +999,32 @@ static ssize_t qpnp_hap_wf_update_show(struct device *dev,
 	return snprintf(buf, PAGE_SIZE, "%d\n", hap->wf_update);
 }
 
+static ssize_t qpnp_hap_wf_update_now_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count) {
+	struct timed_output_dev *timed_dev = dev_get_drvdata(dev);
+	struct qpnp_hap *hap = container_of(timed_dev, struct qpnp_hap,
+					 timed_dev);
+	int rc, i;
+	u8 reg;
+	mutex_lock(&hap->wf_lock);
+
+	hap->wf_update = true;
+	/* Configure WAVE_SAMPLE1 to WAVE_SAMPLE8 register */
+	for (i = 0; i < QPNP_HAP_WAV_SAMP_LEN && hap->wf_update; i++) {
+		reg = hap->wave_samp[i] = hap->shadow_wave_samp[i];
+		rc = qpnp_hap_write_reg(hap, &reg,
+			QPNP_HAP_WAV_S_REG_BASE(hap->base) + i);
+		if (rc)
+			goto unlock;
+	}
+	hap->wf_update = false;
+
+unlock:
+	mutex_unlock(&hap->wf_lock);
+	return count;
+
+}
+
 /* sysfs store for updating wave samples */
 static ssize_t qpnp_hap_wf_update_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
@@ -1320,6 +1346,9 @@ static struct device_attribute qpnp_hap_attrs[] = {
 	__ATTR(wf_update, (S_IRUGO | S_IWUSR | S_IWGRP),
 			qpnp_hap_wf_update_show,
 			qpnp_hap_wf_update_store),
+	__ATTR(wf_update_now, (S_IRUGO | S_IWUSR | S_IWGRP),
+			NULL,
+			qpnp_hap_wf_update_now_store),
 	__ATTR(wf_rep, (S_IRUGO | S_IWUSR | S_IWGRP),
 			qpnp_hap_wf_rep_show,
 			qpnp_hap_wf_rep_store),

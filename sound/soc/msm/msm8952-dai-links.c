@@ -957,6 +957,23 @@ static struct snd_soc_dai_link msm8952_common_fe_dai[] = {
 };
 
 static struct snd_soc_dai_link msm8952_common_be_dai[] = {
+#if  defined(CONFIG_SND_SOC_TFA98XX)
+	/* Backend I2S DAI Links */
+	{
+		.name = LPASS_BE_QUAT_MI2S_RX,
+		.stream_name = "Quaternary MI2S Playback",
+		.cpu_dai_name = "msm-dai-q6-mi2s.3",
+		.platform_name = "msm-pcm-routing",
+		.codec_dai_name = "tfa98xx-aif-8-34",
+		.codec_name = "tfa98xx.8-0034",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_QUATERNARY_MI2S_RX,
+		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.ops = &msm8952_quat_mi2s_be_ops,
+		.ignore_pmdown_time = 1, /* dai link has playback support */
+		.ignore_suspend = 1,
+	},
+#else
 	/* Backend I2S DAI Links */
 	{
 		.name = LPASS_BE_QUAT_MI2S_RX,
@@ -972,6 +989,7 @@ static struct snd_soc_dai_link msm8952_common_be_dai[] = {
 		.ignore_pmdown_time = 1, /* dai link has playback support */
 		.ignore_suspend = 1,
 	},
+#endif
 	/* Primary AUX PCM Backend DAI Links */
 	{
 		.name = LPASS_BE_AUXPCM_RX,
@@ -1000,6 +1018,21 @@ static struct snd_soc_dai_link msm8952_common_be_dai[] = {
 		.ops = &msm_pri_auxpcm_be_ops,
 		.ignore_suspend = 1,
 	},
+#if  defined(CONFIG_SND_SOC_TFA98XX)
+	{ 
+		.name = LPASS_BE_QUAT_MI2S_TX,
+		.stream_name = "Quaternary MI2S Capture",
+		.cpu_dai_name = "msm-dai-q6-mi2s.3",
+		.platform_name = "msm-pcm-routing",
+		.codec_dai_name = "tfa98xx-aif-8-34",
+		.codec_name = "tfa98xx.8-0034",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_QUATERNARY_MI2S_TX,
+		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.ops = &msm8952_quat_mi2s_be_ops,
+		.ignore_suspend = 1,
+	},
+#else
 	{
 		.name = LPASS_BE_QUAT_MI2S_TX,
 		.stream_name = "Quaternary MI2S Capture",
@@ -1013,6 +1046,7 @@ static struct snd_soc_dai_link msm8952_common_be_dai[] = {
 		.ops = &msm8952_quat_mi2s_be_ops,
 		.ignore_suspend = 1,
 	},
+#endif
 	{
 		.name = LPASS_BE_INT_BT_SCO_RX,
 		.stream_name = "Internal BT-SCO Playback",
@@ -1214,6 +1248,7 @@ struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 
 	card->dev = dev;
 	ret = snd_soc_of_parse_card_name(card, "qcom,model");
+	printk(" At %d In (%s),ret=%d,card->name=%s\n",__LINE__, __FUNCTION__,ret,card->name);
 	if (ret) {
 		dev_err(dev, "%s: parse card name failed, err:%d\n",
 				__func__, ret);
@@ -1257,6 +1292,8 @@ struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 		memcpy(msm8952_tasha_dai_links + len3,
 			msm8952_tasha_be_dai, sizeof(msm8952_tasha_be_dai));
 		msm8952_dai_links = msm8952_tasha_dai_links;
+
+		pr_debug("At %d In (%s)\n",__LINE__, __FUNCTION__);
 
 		ret = of_property_read_u32(dev->of_node,
 				"qcom,max-aux-codec", &max_aux_dev);
@@ -1340,9 +1377,12 @@ struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 			temp_str = NULL;
 		}
 	}
+
+	pr_debug("At %d In (%s)\n",__LINE__, __FUNCTION__);
 	card->aux_dev = msm895x_aux_dev;
 	card->codec_conf = msm895x_codec_conf;
 ret_card:
+	pr_debug("At %d In (%s),in ret_card\n",__LINE__, __FUNCTION__);
 	card->num_configs = max_aux_dev;
 	card->num_aux_devs = max_aux_dev;
 	card->dai_link = msm8952_dai_links;
@@ -1351,6 +1391,7 @@ ret_card:
 
 	return card;
 err:
+	pr_debug("At %d In (%s),in error\n",__LINE__, __FUNCTION__);
 	if (max_aux_dev > 0) {
 		for (i = 0; i < max_aux_dev; i++) {
 			kfree(msm895x_aux_dev[i].codec_name);
@@ -1365,6 +1406,7 @@ void msm895x_free_auxdev_mem(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = platform_get_drvdata(pdev);
 	int i;
+	pr_debug("At %d In (%s)\n",__LINE__, __FUNCTION__);
 
 	if (card->num_aux_devs > 0) {
 		for (i = 0; i < card->num_aux_devs; i++) {

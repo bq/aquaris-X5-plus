@@ -2023,6 +2023,7 @@ static int qpnp_pwm_probe(struct spmi_device *spmi)
 {
 	struct qpnp_pwm_chip	*pwm_chip;
 	int			rc;
+	u8 val = 0;
 
 	pwm_chip = kzalloc(sizeof(*pwm_chip), GFP_KERNEL);
 	if (pwm_chip == NULL) {
@@ -2053,6 +2054,20 @@ static int qpnp_pwm_probe(struct spmi_device *spmi)
 
 	if (pwm_chip->channel_owner)
 		pwm_chip->chip.pwms[0].label = pwm_chip->channel_owner;
+
+	val = 0xa5;
+	rc = spmi_ext_register_writel(pwm_chip->spmi_dev->ctrl,
+		pwm_chip->spmi_dev->sid, 0xbcd0, &val, 1);
+	if (rc)
+		pr_err("spmi write 0xbcd0 failed !\n");
+
+	val = 0x01;
+	rc = spmi_ext_register_writel(pwm_chip->spmi_dev->ctrl,
+		pwm_chip->spmi_dev->sid, 0xbce2, &val, 1);
+	if (rc)
+		pr_err("spmi write 0xbce2 failed !\n");
+
+	pr_warn("successfully, sid=%d\n", pwm_chip->spmi_dev->sid);
 
 	return 0;
 

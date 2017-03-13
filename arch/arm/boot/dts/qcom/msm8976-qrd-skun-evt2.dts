@@ -32,6 +32,7 @@
 	};
 };
 
+/*
 &soc {
 	sound-9335 {
 		status = "disabled";
@@ -198,13 +199,14 @@
 			reg = <0x45>;
 		};
 	};
-};
+};*/
 
 &led_flash0{
 	qcom,flash-source = <&pmi8950_flash0>;
 	qcom,torch-source = <&pmi8950_torch0>;
 };
 
+/*
 &slim_msm {
 	status = "disabled";
-};
+};*/

@@ -306,6 +306,12 @@
 #define SND_SOC_DAI_LINK_NO_HOST		0x1
 #define SND_SOC_DAI_LINK_OPT_HOST		0x2
 
+#define GOHAN_FM_POP_CANCEL
+#ifdef GOHAN_FM_POP_CANCEL
+#define GOHAN_FM_POP_CC_BLACK
+#define GOHAN_FM_POP_CC_GREEN
+#endif
+
 /*
  * Bias levels
  *
@@ -720,6 +726,7 @@ struct snd_soc_codec {
 	unsigned int sysfs_registered:1; /* codec has been sysfs registered */
 	unsigned int cache_init:1; /* codec cache has been initialized */
 	unsigned int using_regmap:1; /* using regmap access */
+	unsigned int mclk_enabled:1;
 	u32 cache_only;  /* Suppress writes to hardware */
 	u32 cache_sync; /* Cache needs to be synced to hardware */
 

@@ -418,6 +418,8 @@ struct msm_actuator_tuning_params_t {
 	uint16_t region_size;
 	uint32_t total_steps;
 	struct region_params_t *region_params;
+	enum actuator_initial_position_type initial_position_type;
+	int16_t start_code;
 };
 
 struct park_lens_data_t {

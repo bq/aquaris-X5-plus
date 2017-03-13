@@ -12,6 +12,7 @@
 
 #include "dsi-panel-sim-video.dtsi"
 #include "dsi-panel-sim-cmd.dtsi"
+#include "dsi-panel-booyi-hx8399b-1080p-command.dtsi"
 #include "dsi-panel-nt35597-dualmipi-wqxga-video.dtsi"
 #include "dsi-panel-nt35597-dualmipi-wqxga-cmd.dtsi"
 #include "dsi-panel-otm1906c-1080p-cmd.dtsi"
@@ -23,12 +24,17 @@
 #include "dsi-panel-adv7533-1080p-video.dtsi"
 #include "dsi-panel-adv7533-720p-video.dtsi"
 #include "dsi-panel-nt35523-dualmipi-wqxga-video.dtsi"
+#include "dsi-panel-truly-otm1906a-1080p-command.dtsi"
+#include "dsi-panel-truly-nt35695-1080p-video.dtsi"
+#include "dsi-panel-truly-nt35695-1080p-command.dtsi"  
+#include "dsi-panel-booyi-hx8399c-1080p-video.dtsi"
+#include "dsi-panel-truly-r63350-1080p-video.dtsi"
 
 &soc {
 	dsi_panel_pwr_supply: dsi_panel_pwr_supply {
 		#address-cells = <1>;
 		#size-cells = <0>;
-
+/*
 		qcom,panel-supply-entry@0 {
 			reg = <0>;
 			qcom,supply-name = "vdd";
@@ -37,7 +43,7 @@
 			qcom,supply-enable-load = <100000>;
 			qcom,supply-disable-load = <100>;
 		};
-
+*/
 		qcom,panel-supply-entry@1 {
 			reg = <1>;
 			qcom,supply-name = "vddio";

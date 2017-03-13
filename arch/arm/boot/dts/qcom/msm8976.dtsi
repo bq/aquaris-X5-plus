@@ -122,6 +122,14 @@
 			reg = <0x0 0x0 0x0 0x400000>;
 			label = "adsp_mem";
 		};
+
+		tzapp_mem: tzapp_region@0 {
+			linux,reserve-contiguous-region;
+			linux,reserve-region;
+			linux,remove-completely;
+			reg = <0 0x8DD00000 0 0x1900000>;
+			label = "tzapp_mem";
+		};
 	};
 };
 
@@ -866,11 +874,11 @@
 		qcom,bcl-hotplug-list = <&CPU6 &CPU7>;
 		qcom,bcl-soc-hotplug-list = <&CPU4 &CPU5 &CPU6 &CPU7>;
 		qcom,ibat-monitor {
-			qcom,high-threshold-uamp = <4200000>;
-			qcom,low-threshold-uamp = <3400000>;
+			qcom,high-threshold-uamp = <2000000>;
+			qcom,low-threshold-uamp = <500000>;
 			qcom,mitigation-freq-khz = <1382400>;
-			qcom,vph-high-threshold-uv = <3500000>;
-			qcom,vph-low-threshold-uv = <3200000>;
+			qcom,vph-high-threshold-uv = <3700000>;
+			qcom,vph-low-threshold-uv = <3500000>;
 			qcom,soc-low-threshold = <10>;
 			qcom,thermal-handle = <&msm_thermal_freq>;
 		};
@@ -1612,9 +1620,9 @@
 		qcom,ce-opp-freq = <100000000>;
 	};
 
-	qcom_seecom: qseecom@85b00000 {
+	qcom_seecom: qseecom@8dd00000 {
 		compatible = "qcom,qseecom";
-		reg = <0x85b00000 0x800000>;
+		reg = <0x8dd00000 0x1900000>;
 		reg-names = "secapp-region";
 		qcom,hlos-num-ce-hw-instances = <1>;
 		qcom,hlos-ce-hw-instance = <0>;
@@ -2259,6 +2267,7 @@
 	ext_codec: sound-9335 {
 		compatible = "qcom,msm8952-audio-slim-codec";
 		qcom,model = "msm8976-tasha-snd-card";
+		qcom,msm-ext-pa = "quaternary";
 
 		reg = <0xc051000 0x4>,
 		    <0xc051004 0x4>,
@@ -2270,11 +2279,11 @@
 			"csr_gp_io_lpaif_pri_pcm_pri_mode_muxsel",
 			"csr_gp_io_mux_quin_ctl";
 
-		qcom,audio-routing =
+/*		qcom,audio-routing =
 			"AIF4 VI", "MCLK",
 			"RX_BIAS", "MCLK",
-			"MADINPUT", "MCLK",
-			"AMIC2", "MIC BIAS2",
+			"MADINPUT", "MCLK",*/
+			/*"AMIC2", "MIC BIAS2",
 			"MIC BIAS2", "Headset Mic",
 			"AMIC3", "MIC BIAS2",
 			"MIC BIAS2", "ANCRight Headset Mic",
@@ -2297,8 +2306,26 @@
 			"DMIC5", "MIC BIAS4",
 			"MIC BIAS4", "Digital Mic5",
 			"SpkrLeft IN", "SPK1 OUT",
-			"SpkrRight IN", "SPK2 OUT";
+			"SpkrRight IN", "SPK2 OUT";*/
+/*			"AMIC1", "MIC BIAS1",
+			"MIC BIAS1", "Handset Mic",
+			"AMIC2", "MIC BIAS2",
+			"MIC BIAS2", "Headset Mic",
+			"AMIC3", "MIC BIAS3",
+			"MIC BIAS3", "Secondary Mic";*/
+			qcom,audio-routing =
+			"RX_BIAS", "MCLK",
+			"MADINPUT", "MCLK",
+			"AMIC1", "MIC BIAS1",
+			"MIC BIAS1", "Handset Mic",
+			"AMIC2", "MIC BIAS2",
+			"MIC BIAS2", "Headset Mic",
+			"AMIC3", "MIC BIAS3",
+			"MIC BIAS3", "Secondary Mic"; //,
+			//"SpkrRight IN", "SPK2 OUT";
 
+		qcom,msm-mbhc-hphl-swh = <1>;
+/*
 		qcom,msm-gpios =
 			"us_eu_gpio";
 		qcom,pinctrl-names =
@@ -2310,8 +2337,30 @@
 		pinctrl-0 = <&cross_conn_det_sus>;
 		pinctrl-1 = <&cross_conn_det_act>;
 		qcom,cdc-us-euro-gpios = <&msm_gpio 144 0>;
+*/
+//add start
 
-		qcom,msm-mbhc-hphl-swh = <0>;
+		qcom,msm-gpios =
+			"quat_i2s";
+		qcom,pinctrl-names =
+			"all_off",
+			"quat_act";
+		pinctrl-names =
+			"all_off",
+			"quat_act";
+/*		qcom,msm-gpios =
+			"quat_i2s_gpio";
+		qcom,pinctrl-names =
+			"quat_i2s_pa_sus",
+			"quat_i2s_pa_act";
+		pinctrl-names =
+			"quat_i2s_pa_sus",
+			"quat_i2s_pa_act";*/
+		pinctrl-0 = <&sec_tlmm_lines_sus &sec_tlmm_2_lines_sus>;
+		pinctrl-1 = <&sec_tlmm_lines_act &sec_tlmm_2_lines_act>;
+//add end
+
+		//qcom,msm-mbhc-hphl-swh = <0>;
 		qcom,msm-mbhc-gnd-swh = <0>;
 		qcom,tasha-mclk-clk-freq = <9600000>;
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
@@ -2350,11 +2399,11 @@
 				"msm-dai-q6-dev.12292", "msm-dai-q6-dev.12293";
 		asoc-codec = <&stub_codec>;
 		asoc-codec-names = "msm-stub-codec.1";
-		qcom,max-aux-codec = <2>;
+/*		qcom,max-aux-codec = <2>;
 		qcom,aux-codec = "wsa881x.20170211", "wsa881x.20170212",
 				 "wsa881x.21170213", "wsa881x.21170214";
 		qcom,aux-codec-prefix = "SpkrLeft", "SpkrRight",
-					"SpkrLeft", "SpkrRight";
+					"SpkrLeft", "SpkrRight"; */
 	};
 
 	wcd9xxx_intc: wcd9xxx-irq {
@@ -2909,6 +2958,14 @@
 		qcom,src-sel = <0>;
 		qcom,master-en = <1>;
 	};
+	gpio@c500 {
+		status = "ok";
+		qcom,mode = <1>;
+		qcom,pull = <5>;
+		qcom,vin-sel = <0>;
+		qcom,src-sel = <0>;
+		qcom,master-en = <1>;
+	};
 	gpio@c400 {
 		qcom,mode = <0>;
 		qcom,pull = <5>;
@@ -2919,6 +2976,7 @@
 	};
 };
 
+/*
 &pm8950_1 {
 	pm8950_cajon_dig: 8952_wcd_codec@f000 {
 		compatible = "qcom,msm8x16_wcd_codec";
@@ -2995,4 +3053,4 @@
 				  "hphl_cnp_int";
 		qcom,dig-cdc-base-addr = <0xc0f0000>;
 	};
-};
+};*/

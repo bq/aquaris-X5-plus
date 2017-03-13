@@ -682,7 +682,7 @@
 		regulator-name = "eldo2_8976";
 		startup-delay-us = <0>;
 		enable-active-high;
-		gpio = <&pm8950_gpios 7 0>;
+		gpio = <&pm8950_gpios 6 0>; 
 		regulator-always-on;
 	};
 

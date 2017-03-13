@@ -16,7 +16,8 @@
 #include "msm8976-mdss-mtp.dtsi"
 #include "msm8976-wsa881x.dtsi"
 
-&i2c_4 { /* BLSP1 QUP4 */
+/*
+&i2c_4 { 
 	synaptics@20 {
 		compatible = "synaptics,dsx";
 		reg = <0x20>;
@@ -27,7 +28,7 @@
 		clock-names = "iface_clk", "core_clk";
 		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
 			<&clock_gcc clk_gcc_blsp1_qup4_i2c_apps_clk>;
-		/* pins used by touchscreen */
+		
 		pinctrl-names = "pmx_ts_active","pmx_ts_suspend","pmx_ts_release";
 		pinctrl-0 = <&ts_int_active &ts_reset_active>;
 		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
@@ -47,6 +48,7 @@
 		};
 	};
 };
+*/
 
 &i2c_6 { /* BLSP2 QUP2 */
 	nq@2b {
@@ -66,6 +68,49 @@
 		clocks = <&clock_gcc clk_bb_clk2_pin>;
 		clock-names = "ref_clk";
 	};
+	synaptics@20 {
+		compatible = "synaptics,dsx-i2c";
+		reg = <0x20>;
+		synaptics,ub-i2c-addr = <0x20>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <65 0x2>;
+		vcc_i2c-supply = <&pm8950_l6>;
+		synaptics,bus-reg-name = "vcc_i2c";
+		pinctrl-names = "pmx_ts_active","pmx_ts_suspend","pmx_ts_release";
+		pinctrl-0 = <&ts_int_active &ts_reset_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		pinctrl-2 = <&ts_release>;
+		synaptics,irq-gpio = <&msm_gpio 65 0x2008>;
+		synaptics,reset-gpio = <&msm_gpio 64 0x0>;
+		synaptics,power-gpio = <&msm_gpio 33 0x0>;
+		synaptics,cci-sda-gpio = <&msm_gpio 103 0x0>;
+		synaptics,cci-scl-gpio = <&msm_gpio 104 0x0>;
+		synaptics,power-on-state = <1>;
+		synaptics,irq-on-state = <0>;
+		synaptics,irq-flags = <0x2008>;
+		synaptics,power-delay-ms = <200>;
+		synaptics,reset-delay-ms = <200>;
+		synaptics,reset-on-state = <0>;
+		synaptics,reset-active-ms = <20>;
+		//* uncomment and update line below as appropriate if there are 0D buttons
+		//* synaptics,cap-button-codes = <102 158>;
+		//* uncomment and update lines below as appropriate if there are virtual buttons
+		//* synaptics,vir-button-codes = <102 100 900 100 60 158 300 900 100 60>;
+		synaptics,max-y-for-2d = <1920>;
+	};
+	};
+&i2c_8 {
+		tfa98xx@36 {
+			compatible = "nxp,tfa98xx";
+			//reg = <0x36>;
+			reg = <0x34>;
+			nxp,tfa_max-vol-steps=<0x01>;
+			nxp,reset-gpio = <&msm_gpio 13 0>;
+			nxp,irq-gpio = <&msm_gpio 12 0x2008>;
+			//Vdd-supply = <&pm8916_l6>;// only for test in 9100
+			status = "okay";
+
+			};
 };
 
 &i2c_2 {
@@ -114,7 +159,7 @@
 		};
 	};
 
-	sound-9335 {
+/*	sound-9335 {
 		qcom,msm-gpios =
 			"us_eu_gpio";
 		qcom,pinctrl-names =
@@ -126,7 +171,7 @@
 		pinctrl-0 = <&cross_conn_det_sus>;
 		pinctrl-1 = <&cross_conn_det_act>;
 		qcom,cdc-us-euro-gpios = <&msm_gpio 144 0>;
-	};
+	};*/
 };
 
 &blsp1_uart2 {
@@ -284,10 +329,22 @@
 		     &qdsd_data0_spmi &qdsd_data3_spmi>;
 };
 
+&pm8950_gpios {
+	gpio@c100 {
+		qcom,mode = <1>;
+		qcom,pull = <5>;
+		qcom,vin-sel = <2>;
+		qcom,src-sel = <2>;
+		qcom,master-en = <1>;
+		qcom,out-strength = <2>;
+		status = "disabled";
+	};
+};
+/*
 &pm8950_cajon_dig {
 	status = "disabled";
 };
 
 &pm8950_cajon_analog {
 	status = "disabled";
-};
+};*/

@@ -65,8 +65,8 @@
 		};
 
 		cdc-pdm-2-lines {
-			qcom,pins = <&gp 116>, <&gp 117>, <&gp 118>, <&gp 119>;
-			qcom,num-grp-pins = <4>;
+			qcom,pins = /*<&gp 116>,*/ <&gp 117>, <&gp 118>, <&gp 119>;
+			qcom,num-grp-pins = <3>;
 			qcom,pin-func = <2>;
 			label = "cdc-pdm-2-lines";
 			cdc_pdm_lines_2_act: pdm_lines_2_on {
@@ -79,6 +79,22 @@
 			};
 		};
 
+		tpa6130a2 {
+			qcom,pins = <&gp 8>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <0>;
+			label = "tpa6130a2";
+			tpa6130a2_active: tpa6130a2_active {
+				drive-strength = <8>;
+				output-low;
+				bias-pull-down;
+			};
+			tpa6130a2_suspend: tpa6130a2_suspend {
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+		
 		pmx-uartconsole {
 			qcom,pins = <&gp 4>, <&gp 5>;
 			qcom,num-grp-pins = <2>;
@@ -87,6 +103,21 @@
 			uart_console_sleep: uart-console {
 				drive-strength = <2>;
 				bias-pull-down;
+			};
+		};
+
+		hall_int_pin {
+			qcom,pins = <&gp 107>;
+			qcom,pin-func = <0>;
+			qcom,num-grp-pins = <1>;
+			label = "hall_int_pin";
+			hall_int_active: active {
+				drive-strength = <6>;
+				bias-pull-up;
+			};
+			hall_int_suspend: suspend {
+				drive-strength = <6>;
+				bias-pull-up;
 			};
 		};
 
@@ -530,6 +561,42 @@
                         };
                 };
 
+		tfa89xx_reset {
+                        /* CLK, DATA */
+                        qcom,pins = <&gp 13>;
+                        qcom,num-grp-pins = <1>;
+                        qcom,pin-func = <0>;
+                        label = "tfa89xx_reset";
+                        /* active state */
+                       tfa89xx_reset_active: tfa89xx_reset_active{
+                                drive-strength = <2>; /* 2 MA */
+                                bias-disable; /* No PULL */
+                        };
+                        /* suspended state */
+                        tfa89xx_reset_sleep: tfa89xx_reset_sleep {
+                                drive-strength = <2>; /* 2 MA */
+                                bias-disable; /* No PULL */
+                        };
+                };
+
+		tfa89xx_irq {
+                        /* CLK, DATA */
+                        qcom,pins = <&gp 12>;
+                        qcom,num-grp-pins = <1>;
+                        qcom,pin-func = <0>;
+                        label = "tfa89xx_irq";
+                        /* active state */
+                       tfa89xx_irq_active: tfa89xx_irq_active{
+                                drive-strength = <8>; /* 8 MA */
+                                bias-pull-up;
+                        };
+                        /* suspended state */
+                        tfa89xx_irq_sleep: tfa89xx_irq_sleep {
+                                drive-strength = <2>; /* 2 MA */
+                                bias-pull-down;
+                        };
+                };
+
 		/*sensors */
 		cam_sensor_mclk0_default {
 			/* MCLK0 */
@@ -558,7 +625,7 @@
 
 		cam_sensor_rear_default {
 			/* RESET, STANDBY */
-			qcom,pins = <&gp 129>, <&gp 35>;
+			qcom,pins = <&gp 129>, <&gp 123>;
 			qcom,num-grp-pins = <2>;
 			label = "cam_sensor_rear_default";
 			/* active state */
@@ -570,7 +637,7 @@
 
 		cam_sensor_rear_sleep {
 			/* RESET, STANDBY */
-			qcom,pins = <&gp 129>, <&gp 35>;
+			qcom,pins = <&gp 129>, <&gp 123>;
 			qcom,num-grp-pins = <2>;
 			label = "cam_sensor_rear_sleep";
 			/*suspended state */
@@ -606,7 +673,7 @@
 
 		cam_sensor_mclk1_default {
 			/* MCLK1 */
-			qcom,pins = <&gp 27>;
+			qcom,pins = <&gp 28>;
 			qcom,num-grp-pins = <1>;
 			qcom,pin-func = <1>;
 			label = "cam_sensor_mclk1_default";
@@ -619,7 +686,7 @@
 
 		cam_sensor_mclk1_sleep {
 			/* MCLK1 */
-			qcom,pins = <&gp 27>;
+			qcom,pins = <&gp 28>;
 			qcom,num-grp-pins = <1>;
 			label = "cam_sensor_mclk1_sleep";
 			/*suspended state */
@@ -631,8 +698,8 @@
 
 		cam_sensor_front_default {
 			/* RESET, STANDBY */
-			qcom,pins = <&gp 130>, <&gp 36>;
-			qcom,num-grp-pins = <2>;
+			qcom,pins = <&gp 131>;
+			qcom,num-grp-pins = <1>;
 			label = "cam_sensor_front_default";
 			/* active state */
 			cam_sensor_front_default: cam_sensor_front_default {
@@ -643,8 +710,8 @@
 
 		cam_sensor_front_sleep {
 			/* RESET, STANDBY */
-			qcom,pins = <&gp 130>, <&gp 36>;
-			qcom,num-grp-pins = <2>;
+			qcom,pins = <&gp 131>;
+			qcom,num-grp-pins = <1>;
 			label = "cam_sensor_front_sleep";
 			/*suspended state */
 			cam_sensor_front_sleep: cam_sensor_front_sleep {
@@ -1483,6 +1550,38 @@
 			};
 		};
 
+//add start
+		sec-tlmm-lines {
+		      qcom,pins = <&gp 102>, <&gp 105>;
+		      qcom,num-grp-pins = <2>;
+		      qcom,pin-func = <1>;
+		      label = "sec-tlmm-lines";
+		      sec_tlmm_lines_act: sec_tlmm_lines_act {
+		        drive-strength = <8>;
+		        bias-pull-none;
+		      };
+		      sec_tlmm_lines_sus: sec_tlmm_lines_sus {
+		        drive-strength = <2>;
+		        bias-disable;
+		      };
+		    };
+
+		    sec-tlmm-2-lines {
+		      qcom,pins = <&gp 134>, <&gp 135>;
+		      qcom,num-grp-pins = <2>;
+		      qcom,pin-func = <3>;
+		      label = "sec-tlmm-2-lines";
+		      sec_tlmm_2_lines_act: sec_tlmm_2_lines_act {
+		        drive-strength = <8>;
+		        bias-pull-none;
+		      };
+		      sec_tlmm_2_lines_sus: sec_tlmm_2_lines_sus {
+		        drive-strength = <2>;
+		        bias-disable;
+		      };
+		    };
+//add end
+
 		wcnss_pmux_5wire: wcnss_pmux_5wire {
 			/* Uses general purpose pins */
 			qcom,pins = <&gp 40>, <&gp 41>,
@@ -1576,5 +1675,16 @@
 				bias-disable;
 			};
 		};
+		button_backlight_pin {
+			qcom,pins = <&gp 101>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <0>;
+			label = "button-backlight-pin";
+			button_backlight_off: button_backlight_off {
+				drive-strength = <2>;
+				bias-disable;
+				output-low;
+			};
+		};	
 	};
 };

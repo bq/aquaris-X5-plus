@@ -26,9 +26,9 @@ DEFINE_MSM_MUTEX(msm_actuator_mutex);
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 #endif
 
-#define PARK_LENS_LONG_STEP 7
-#define PARK_LENS_MID_STEP 5
-#define PARK_LENS_SMALL_STEP 3
+#define PARK_LENS_LONG_STEP 3
+#define PARK_LENS_MID_STEP 2
+#define PARK_LENS_SMALL_STEP 1
 #define MAX_QVALUE 4096
 
 static struct v4l2_file_operations msm_actuator_v4l2_subdev_fops;
@@ -786,6 +786,7 @@ static int32_t msm_actuator_park_lens(struct msm_actuator_ctrl_t *a_ctrl)
 {
 	int32_t rc = 0;
 	uint16_t next_lens_pos = 0;
+	int16_t medium_lens_pos = a_ctrl->initial_code;
 	struct msm_camera_i2c_reg_setting reg_setting;
 
 	a_ctrl->i2c_tbl_index = 0;
@@ -804,48 +805,98 @@ static int32_t msm_actuator_park_lens(struct msm_actuator_ctrl_t *a_ctrl)
 		a_ctrl->park_lens.max_step = a_ctrl->max_code_size;
 
 	next_lens_pos = a_ctrl->step_position_table[a_ctrl->curr_step_pos];
-	while (next_lens_pos) {
-		/* conditions which help to reduce park lens time */
-		if (next_lens_pos > (a_ctrl->park_lens.max_step *
-			PARK_LENS_LONG_STEP)) {
-			next_lens_pos = next_lens_pos -
-				(a_ctrl->park_lens.max_step *
-				PARK_LENS_LONG_STEP);
-		} else if (next_lens_pos > (a_ctrl->park_lens.max_step *
-			PARK_LENS_MID_STEP)) {
-			next_lens_pos = next_lens_pos -
-				(a_ctrl->park_lens.max_step *
-				PARK_LENS_MID_STEP);
-		} else if (next_lens_pos > (a_ctrl->park_lens.max_step *
-			PARK_LENS_SMALL_STEP)) {
-			next_lens_pos = next_lens_pos -
-				(a_ctrl->park_lens.max_step *
-				PARK_LENS_SMALL_STEP);
-		} else {
-			next_lens_pos = (next_lens_pos >
-				a_ctrl->park_lens.max_step) ?
-				(next_lens_pos - a_ctrl->park_lens.
-				max_step) : 0;
-		}
-		a_ctrl->func_tbl->actuator_parse_i2c_params(a_ctrl,
-			next_lens_pos, a_ctrl->park_lens.hw_params,
-			a_ctrl->park_lens.damping_delay);
 
-		reg_setting.reg_setting = a_ctrl->i2c_reg_tbl;
-		reg_setting.size = a_ctrl->i2c_tbl_index;
-		reg_setting.data_type = a_ctrl->i2c_data_type;
+	if (a_ctrl->initial_position_type == ACTUATOR_MEDIUM) {
+		/*If it's mid entry type actuator, the final lens position is medium_lens_pos instead of zero when Vaf is power down.*/
+		while (next_lens_pos != medium_lens_pos) {
+			/* conditions which help to reduce park lens time */
+			if(next_lens_pos>medium_lens_pos){
+				if ((next_lens_pos-medium_lens_pos) > (a_ctrl->park_lens.max_step * PARK_LENS_LONG_STEP)) {
+					next_lens_pos = next_lens_pos - (a_ctrl->park_lens.max_step * PARK_LENS_LONG_STEP);
+				} else if ((next_lens_pos-medium_lens_pos) > (a_ctrl->park_lens.max_step * PARK_LENS_MID_STEP)) {
+					next_lens_pos = next_lens_pos - (a_ctrl->park_lens.max_step * PARK_LENS_MID_STEP);
+				} else if ((next_lens_pos-medium_lens_pos) > (a_ctrl->park_lens.max_step * PARK_LENS_SMALL_STEP)) {
+					next_lens_pos = next_lens_pos - (a_ctrl->park_lens.max_step * PARK_LENS_SMALL_STEP);
+				} else {
+					next_lens_pos = ((next_lens_pos-medium_lens_pos) > a_ctrl->park_lens.max_step) ?
+						(next_lens_pos - a_ctrl->park_lens.max_step) : medium_lens_pos;
+				}
+			}else{
+				if ((medium_lens_pos-next_lens_pos) > (a_ctrl->park_lens.max_step * PARK_LENS_LONG_STEP)) {
+					next_lens_pos = next_lens_pos + (a_ctrl->park_lens.max_step * PARK_LENS_LONG_STEP);
+				} else if ((medium_lens_pos-next_lens_pos) > (a_ctrl->park_lens.max_step * PARK_LENS_MID_STEP)) {
+					next_lens_pos = next_lens_pos + (a_ctrl->park_lens.max_step * PARK_LENS_MID_STEP);
+				} else if ((medium_lens_pos-next_lens_pos) > (a_ctrl->park_lens.max_step * PARK_LENS_SMALL_STEP)) {
+					next_lens_pos = next_lens_pos + (a_ctrl->park_lens.max_step * PARK_LENS_SMALL_STEP);
+				} else {
+					next_lens_pos = ((medium_lens_pos-next_lens_pos) > a_ctrl->park_lens.max_step) ?
+						(next_lens_pos + a_ctrl->park_lens.max_step) : medium_lens_pos;
+				}
+			}
+			a_ctrl->func_tbl->actuator_parse_i2c_params(a_ctrl,
+				next_lens_pos, a_ctrl->park_lens.hw_params,
+				a_ctrl->park_lens.damping_delay);
 
-		rc = a_ctrl->i2c_client.i2c_func_tbl->
-			i2c_write_table_w_microdelay(
-			&a_ctrl->i2c_client, &reg_setting);
-		if (rc < 0) {
-			pr_err("%s Failed I2C write Line %d\n",
-				__func__, __LINE__);
-			return rc;
+			reg_setting.reg_setting = a_ctrl->i2c_reg_tbl;
+			reg_setting.size = a_ctrl->i2c_tbl_index;
+			reg_setting.data_type = a_ctrl->i2c_data_type;
+
+			rc = a_ctrl->i2c_client.i2c_func_tbl->
+				i2c_write_table_w_microdelay(
+				&a_ctrl->i2c_client, &reg_setting);
+			if (rc < 0) {
+				pr_err("%s Failed I2C write Line %d\n",
+					__func__, __LINE__);
+				return rc;
+			}
+			a_ctrl->i2c_tbl_index = 0;
+			/* Use typical damping time delay to avoid tick sound */
+			usleep_range(10000, 12000);
 		}
-		a_ctrl->i2c_tbl_index = 0;
-		/* Use typical damping time delay to avoid tick sound */
-		usleep_range(10000, 12000);
+	} else {
+		while (next_lens_pos) {
+			/* conditions which help to reduce park lens time */
+			if (next_lens_pos > (a_ctrl->park_lens.max_step *
+				PARK_LENS_LONG_STEP)) {
+				next_lens_pos = next_lens_pos -
+					(a_ctrl->park_lens.max_step *
+					PARK_LENS_LONG_STEP);
+			} else if (next_lens_pos > (a_ctrl->park_lens.max_step *
+				PARK_LENS_MID_STEP)) {
+				next_lens_pos = next_lens_pos -
+					(a_ctrl->park_lens.max_step *
+					PARK_LENS_MID_STEP);
+			} else if (next_lens_pos > (a_ctrl->park_lens.max_step *
+				PARK_LENS_SMALL_STEP)) {
+				next_lens_pos = next_lens_pos -
+					(a_ctrl->park_lens.max_step *
+					PARK_LENS_SMALL_STEP);
+			} else {
+				next_lens_pos = (next_lens_pos >
+					a_ctrl->park_lens.max_step) ?
+					(next_lens_pos - a_ctrl->park_lens.
+					max_step) : 0;
+			}
+			a_ctrl->func_tbl->actuator_parse_i2c_params(a_ctrl,
+				next_lens_pos, a_ctrl->park_lens.hw_params,
+				a_ctrl->park_lens.damping_delay);
+
+			reg_setting.reg_setting = a_ctrl->i2c_reg_tbl;
+			reg_setting.size = a_ctrl->i2c_tbl_index;
+			reg_setting.data_type = a_ctrl->i2c_data_type;
+
+			rc = a_ctrl->i2c_client.i2c_func_tbl->
+				i2c_write_table_w_microdelay(
+				&a_ctrl->i2c_client, &reg_setting);
+			if (rc < 0) {
+				pr_err("%s Failed I2C write Line %d\n",
+					__func__, __LINE__);
+				return rc;
+			}
+			a_ctrl->i2c_tbl_index = 0;
+			/* Use typical damping time delay to avoid tick sound */
+			usleep_range(10000, 12000);
+		}
 	}
 
 	return 0;
@@ -942,6 +993,7 @@ static int32_t msm_actuator_init_step_table(struct msm_actuator_ctrl_t *a_ctrl,
 	int16_t code_per_step = 0;
 	uint32_t qvalue = 0;
 	int16_t cur_code = 0;
+	int16_t start_code = 0;
 	uint16_t step_index = 0, region_index = 0;
 	uint16_t step_boundary = 0;
 	uint32_t max_code_size = 1;
@@ -977,7 +1029,14 @@ static int32_t msm_actuator_init_step_table(struct msm_actuator_ctrl_t *a_ctrl,
 	if (a_ctrl->step_position_table == NULL)
 		return -ENOMEM;
 
-	cur_code = set_info->af_tuning_params.initial_code;
+	/*If there is af OTP, the start_code is infinity_code, else it will be zero.
+	    If it's mid entry type, the initial_code will be medium_lens_postion,
+	    so initial_code shouldn't be used for initing step_position_table.
+	    The start_code is infinity_code, it's used for initing step_position_table. */
+	start_code = (set_info->af_tuning_params.initial_position_type == ACTUATOR_MEDIUM) ?
+					set_info->af_tuning_params.start_code : set_info->af_tuning_params.initial_code;
+	cur_code = start_code;
+
 	a_ctrl->step_position_table[step_index++] = cur_code;
 	for (region_index = 0;
 		region_index < a_ctrl->region_size;
@@ -1004,7 +1063,7 @@ static int32_t msm_actuator_init_step_table(struct msm_actuator_ctrl_t *a_ctrl,
 				cur_code = step_index * code_per_step / qvalue;
 			else
 				cur_code = step_index * code_per_step;
-			cur_code += set_info->af_tuning_params.initial_code;
+			cur_code += start_code;
 			if (cur_code < max_code_size)
 				a_ctrl->step_position_table[step_index] =
 					cur_code;
@@ -1032,8 +1091,11 @@ static int32_t msm_actuator_set_default_focus(
 	int32_t rc = 0;
 	CDBG("Enter\n");
 
-	if (a_ctrl->curr_step_pos != 0)
-		rc = a_ctrl->func_tbl->actuator_move_focus(a_ctrl, move_params);
+	/*dest_step_pos must be different from curr_step_pos when open camera, whatever the initial curr_step_pos value is.*/
+	move_params->dest_step_pos = a_ctrl->curr_step_pos + 1;
+
+	rc = a_ctrl->func_tbl->actuator_move_focus(a_ctrl, move_params);
+
 	CDBG("Exit\n");
 	return rc;
 }
@@ -1361,11 +1423,17 @@ static int32_t msm_actuator_set_param(struct msm_actuator_ctrl_t *a_ctrl,
 	/* Park lens data */
 	a_ctrl->park_lens = set_info->actuator_params.park_lens;
 	a_ctrl->initial_code = set_info->af_tuning_params.initial_code;
+	a_ctrl->initial_position_type = set_info->af_tuning_params.initial_position_type;
 	if (a_ctrl->func_tbl->actuator_init_step_table)
 		rc = a_ctrl->func_tbl->
 			actuator_init_step_table(a_ctrl, set_info);
 
-	a_ctrl->curr_step_pos = 0;
+	/*when af power up, the initial curr_step_pos should be corresponding to the actual lens postion.
+	    If it's mid entry type, the initial curr_step_pos will be medium_lens_pos, else will be zero.*/
+	if(a_ctrl->initial_position_type == ACTUATOR_MEDIUM)
+		a_ctrl->curr_step_pos = a_ctrl->total_steps>>1;
+	else
+		a_ctrl->curr_step_pos = 0;
 	a_ctrl->curr_region_index = 0;
 	CDBG("Exit\n");
 
@@ -1643,6 +1711,14 @@ static long msm_actuator_subdev_do_ioctl(
 			actuator_data.cfg.set_info.af_tuning_params
 				.initial_code =
 				u32->cfg.set_info.af_tuning_params.initial_code;
+
+			actuator_data.cfg.set_info.af_tuning_params
+				.start_code =
+				u32->cfg.set_info.af_tuning_params.start_code;
+
+			actuator_data.cfg.set_info.af_tuning_params
+				.initial_position_type =
+				u32->cfg.set_info.af_tuning_params.initial_position_type;
 
 			actuator_data.cfg.set_info.af_tuning_params.pwd_step =
 				u32->cfg.set_info.af_tuning_params.pwd_step;

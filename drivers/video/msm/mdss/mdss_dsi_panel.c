@@ -30,6 +30,12 @@
 #define MIN_REFRESH_RATE 48
 #define DEFAULT_MDP_TRANSFER_TIME 14000
 
+
+#define PANLE_NAME_R63350 "truly R63350 1080p video mode dsi panel"
+#define PANLE_NAME_NT35695H "truly NT35695 1080p command mode dsi panel"
+int panel_id_flag;
+
+
 DEFINE_LED_TRIGGER(bl_led_trigger);
 
 #define CEIL(x, y)	(((x) + ((y)-1)) / (y))
@@ -372,7 +378,7 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 			gpio_set_value((ctrl_pdata->disp_en_gpio), 0);
 			gpio_free(ctrl_pdata->disp_en_gpio);
 		}
-		gpio_set_value((ctrl_pdata->rst_gpio), 0);
+		gpio_set_value((ctrl_pdata->rst_gpio), 1);
 		gpio_free(ctrl_pdata->rst_gpio);
 		if (gpio_is_valid(ctrl_pdata->lcd_mode_sel_gpio))
 			gpio_free(ctrl_pdata->lcd_mode_sel_gpio);
@@ -628,12 +634,14 @@ static void mdss_dsi_panel_switch_mode(struct mdss_panel_data *pdata,
 
 	mdss_dsi_panel_cmds_send(ctrl_pdata, pcmds, flags);
 }
-
+extern int lm3697_mdss_backlight_set(u32 level);
 static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 							u32 bl_level)
 {
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 	struct mdss_dsi_ctrl_pdata *sctrl = NULL;
+	//u32 temp;
+	static u32 old_bl_level=0;
 
 	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
@@ -652,12 +660,18 @@ static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 	if ((bl_level < pdata->panel_info.bl_min) && (bl_level != 0))
 		bl_level = pdata->panel_info.bl_min;
 
+	if(bl_level==0 || (old_bl_level==0 && bl_level!=0)){
+			pr_info("%s, bl_level=%d\n",__func__,bl_level);
+		}
+
 	switch (ctrl_pdata->bklt_ctrl) {
 	case BL_WLED:
 		led_trigger_event(bl_led_trigger, bl_level);
 		break;
 	case BL_PWM:
+		//temp = bl_level > 0 ? pdata->panel_info.bl_max : bl_level;
 		mdss_dsi_panel_bklt_pwm(ctrl_pdata, bl_level);
+		lm3697_mdss_backlight_set(bl_level);
 		break;
 	case BL_DCS_CMD:
 		if (!mdss_dsi_sync_wait_enable(ctrl_pdata)) {
@@ -688,6 +702,7 @@ static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 			__func__);
 		break;
 	}
+	old_bl_level = bl_level;
 }
 
 static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
@@ -2416,6 +2431,17 @@ int mdss_dsi_panel_init(struct device_node *node,
 		pr_info("%s: Panel Name = %s\n", __func__, panel_name);
 		strlcpy(&pinfo->panel_name[0], panel_name, MDSS_MAX_PANEL_LEN);
 	}
+
+
+        if (0 == strcmp(panel_name,PANLE_NAME_R63350)) {
+            panel_id_flag = 1;
+        }else if(0 == strcmp(panel_name,PANLE_NAME_NT35695H)){
+            panel_id_flag = 2;
+        }else{
+            panel_id_flag = 0;
+        }
+
+
 	rc = mdss_panel_parse_dt(node, ctrl_pdata);
 	if (rc) {
 		pr_err("%s:%d panel dt parse failed\n", __func__, __LINE__);

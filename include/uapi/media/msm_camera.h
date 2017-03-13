@@ -1698,6 +1698,11 @@ enum actuator_type {
 	ACTUATOR_BIVCM,
 };
 
+enum actuator_initial_position_type {
+	ACTUATOR_NORMAL,
+	ACTUATOR_MEDIUM,
+};
+
 enum msm_actuator_data_type {
 	MSM_ACTUATOR_BYTE_DATA = 1,
 	MSM_ACTUATOR_WORD_DATA,
@@ -1755,6 +1760,8 @@ struct msm_actuator_tuning_params_t {
 	uint16_t region_size;
 	uint32_t total_steps;
 	struct region_params_t *region_params;
+	enum actuator_initial_position_type initial_position_type;
+	int16_t start_code;
 };
 
 struct msm_actuator_params_t {
