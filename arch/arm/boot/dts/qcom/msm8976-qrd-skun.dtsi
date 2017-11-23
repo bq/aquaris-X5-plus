@@ -443,8 +443,8 @@
 	qcom,chg-led-support;
 	qcom,only-allow-5v;
 	qcom,report-temp-by-d-work;
-	qcom,fastchg-current-ma = <1450>;
-	qcom,iterm-ma = <100>;
+	qcom,fastchg-current-ma = <1200>;
+	qcom,iterm-ma = <150>;
 	qcom,resume-delta-mv = <50>;
 	qcom,thermal-mitigation = <1600 1450 1100 700 450>;
 	qcom,charging-timeout-mins = <768>;
@@ -468,13 +468,13 @@
 	qcom,hot-bat-decidegc = <550>;
 	qcom,warm-bat-decidegc = <450>;
 	qcom,bad-battery-detection-enable;
-	qcom,resume-soc = <99>;
+	qcom,resume-soc = <97>;
 	qcom,hold-soc-while-full;
 	qcom,fg-delta-soc = <1>;
-	qcom,vbat-estimate-diff-mv = <100>;
+	qcom,vbat-estimate-diff-mv = <200>;
 	qcom,cold-hot-jeita-hysteresis = <30 50>;
-	qcom,fg-iterm-ma = <120>;
-	qcom,fg-chg-iterm-ma = <100>;
+	qcom,fg-iterm-ma = <160>;
+	qcom,fg-chg-iterm-ma = <150>;
 };
 
 &labibb {
