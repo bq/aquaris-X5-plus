@@ -153,10 +153,8 @@ struct inet_sock {
 	/* Socket demultiplex comparisons on incoming packets. */
 #define inet_daddr		sk.__sk_common.skc_daddr
 #define inet_rcv_saddr		sk.__sk_common.skc_rcv_saddr
-#define inet_addrpair		sk.__sk_common.skc_addrpair
 #define inet_dport		sk.__sk_common.skc_dport
 #define inet_num		sk.__sk_common.skc_num
-#define inet_portpair		sk.__sk_common.skc_portpair
 
 	__be32			inet_saddr;
 	__s16			uc_ttl;
@@ -209,11 +207,11 @@ static inline void inet_sk_copy_descendant(struct sock *sk_to,
 }
 #endif
 
-extern int inet_sk_rebuild_header(struct sock *sk);
+int inet_sk_rebuild_header(struct sock *sk);
 
 extern u32 inet_ehash_secret;
 extern u32 ipv6_hash_secret;
-extern void build_ehash_secret(void);
+void build_ehash_secret(void);
 
 static inline unsigned int inet_ehashfn(struct net *net,
 					const __be32 laddr, const __u16 lport,
