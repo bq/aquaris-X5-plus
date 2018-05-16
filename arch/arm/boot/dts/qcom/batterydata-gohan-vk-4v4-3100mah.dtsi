@@ -1,0 +1,51 @@
+
+qcom,batterydata-gohan-vk-4v4-3100mah {
+	/* #batterydata-gohan-vk-4v4-3100mah*/
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <3020>;
+	qcom,batt-id-kohm = <47>;
+	qcom,battery-beta = <3380>;
+	qcom,battery-type = "batterydata-gohan-vk-4v4-3100mah";
+	qcom,chg-rslow-comp-c1 = <3682152>;
+	qcom,chg-rslow-comp-c2 = <5896821>;
+	qcom,chg-rs-to-rslow = <1038148>;
+	qcom,chg-rslow-comp-thr = <0xB1>;
+	qcom,fg-cc-cv-threshold-mv = <4390>;
+	qcom,thermal-coefficients = [DA 86 F0 50 08 3C];
+	qcom,checksum = <0xF48F>;
+	qcom,gui-version = "PMI8950GUI - 2.0.0.16";
+	qcom,fg-profile-data = [
+		 08 88 28 7E 
+		 E0 81 2E 7C 
+		 3E 83 68 72 
+		 22 7E 34 7B 
+		 F6 81 A8 9B 
+		 40 BF AE D0 
+		 85 10 F0 83 
+		 FE 7C 3C 81 
+		 9C 77 2E 83 
+		 79 7A 9C 8C 
+		 21 89 21 82 
+		 DD 9B 74 C4 
+		 FF D2 65 0D 
+		 26 0C EC 5A 
+		 14 70 B2 FD 
+		 1F 2E B6 45 
+		 07 39 00 00 
+		 3D 4D FF 40 
+		 27 38 00 00 
+		 00 00 00 00 
+		 00 00 00 00 
+		 F6 70 11 6B 
+		 59 85 50 82 
+		 A9 7C F0 71 
+		 2D 75 42 78 
+		 72 75 BC 69 
+		 CF 67 6A A2 
+		 27 96 60 80 
+		 5E A0 71 0C 
+		 28 00 FF 36 
+		 F0 11 30 03 
+		 00 00 00 0C 
+	];
+};

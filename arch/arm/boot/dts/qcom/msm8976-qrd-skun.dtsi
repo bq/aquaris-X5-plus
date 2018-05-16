@@ -430,7 +430,7 @@
 	qrd_batterydata: qcom,battery-data {
 		qcom,batt-id-range-pct = <15>;
 		#include "batterydata-gohan-ebt-4v4-3100mah.dtsi"
-		#include "batterydata-gohan-atl-4v4-3100mah.dtsi"
+		#include "batterydata-gohan-vk-4v4-3100mah.dtsi"
 	};
 };
 
